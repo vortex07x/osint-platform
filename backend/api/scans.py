@@ -13,6 +13,7 @@ from models.sources import Source
 from models.entities import Entity
 from ai_engine.risk.risk_engine import analyze_entities
 # from models.exposures import Exposure
+from scrapers.social.username_checker import check_username_across_platforms
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -130,6 +131,84 @@ async def scan_github_profile(scan_id: str, username: str, db: Session = Depends
             {"entity_type": e.entity_type, "value": e.value}
             for e in created_entities
         ],
+        "exposures": [
+            {"title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score}
+            for exp in created_exposures
+        ]
+    }
+
+@router.post("/{scan_id}/scan-username/{username}")
+async def scan_username_cross_platform(scan_id: str, username: str, db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    results = await check_username_across_platforms(username)
+
+    found_platforms = [r for r in results if r["exists"]]
+
+    created_sources = []
+    created_entities = []
+
+    for platform_result in found_platforms:
+        new_source = Source(
+            scan_id=scan_id,
+            platform=platform_result["platform"],
+            url=platform_result["url"],
+            data_type="profile_existence",
+            raw_data_json=platform_result
+        )
+        db.add(new_source)
+        db.commit()
+        db.refresh(new_source)
+        created_sources.append(new_source)
+
+        new_entity = Entity(
+            scan_id=scan_id,
+            source_id=new_source.id,
+            entity_type="username",
+            value=f"{username} (on {platform_result['platform']})",
+            confidence_score=0.85
+        )
+        db.add(new_entity)
+        created_entities.append(new_entity)
+
+    db.commit()
+    for e in created_entities:
+        db.refresh(e)
+
+    entity_dicts = [
+        {"id": e.id, "entity_type": e.entity_type, "value": e.value}
+        for e in created_entities
+    ]
+    exposure_findings = analyze_entities(entity_dicts)
+
+    created_exposures = []
+    for finding in exposure_findings:
+        new_exposure = Exposure(
+            scan_id=scan_id,
+            category=finding["category"],
+            severity=finding["severity"],
+            title=finding["title"],
+            description=finding["description"],
+            risk_score=finding["risk_score"],
+            affected_entities=finding["affected_entities"],
+            recommendations=finding["recommendations"]
+        )
+        db.add(new_exposure)
+        created_exposures.append(new_exposure)
+
+    scan.status = "completed"
+    scan.progress = 100
+    db.commit()
+
+    return {
+        "message": f"Username scan completed for '{username}'",
+        "platforms_checked": len(results),
+        "platforms_found": len(found_platforms),
+        "found_on": [p["platform"] for p in found_platforms],
+        "entities_found": len(created_entities),
+        "exposures_found": len(created_exposures),
         "exposures": [
             {"title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score}
             for exp in created_exposures
