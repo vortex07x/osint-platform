@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from db.database import get_db
 
 app = FastAPI(title="OSINT Platform API")
 
@@ -9,3 +12,8 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.get("/db-test")
+def test_db(db: Session = Depends(get_db)):
+    result = db.execute(text("SELECT 1"))
+    return {"database": "connected", "result": result.scalar()}
