@@ -1,12 +1,27 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from db.database import get_db
 from api.scans import router as scans_router
+from api.sources import router as sources_router
+from api.entities import router as entities_router
+from api.exposures import router as exposures_router
 
 app = FastAPI(title="OSINT Platform API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(scans_router)
+app.include_router(sources_router)
+app.include_router(entities_router)
+app.include_router(exposures_router)
 
 @app.get("/")
 def read_root():
