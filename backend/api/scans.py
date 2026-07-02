@@ -11,6 +11,8 @@ from schemas.scans import ScanFullReport
 from scrapers.social.github_scraper import fetch_github_profile, extract_entities_from_github
 from models.sources import Source
 from models.entities import Entity
+from ai_engine.risk.risk_engine import analyze_entities
+# from models.exposures import Exposure
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -90,19 +92,46 @@ async def scan_github_profile(scan_id: str, username: str, db: Session = Depends
         db.add(new_entity)
         created_entities.append(new_entity)
 
+    db.commit()
+    for e in created_entities:
+        db.refresh(e)
+
+    entity_dicts = [
+        {"id": e.id, "entity_type": e.entity_type, "value": e.value}
+        for e in created_entities
+    ]
+    exposure_findings = analyze_entities(entity_dicts)
+
+    created_exposures = []
+    for finding in exposure_findings:
+        new_exposure = Exposure(
+            scan_id=scan_id,
+            category=finding["category"],
+            severity=finding["severity"],
+            title=finding["title"],
+            description=finding["description"],
+            risk_score=finding["risk_score"],
+            affected_entities=finding["affected_entities"],
+            recommendations=finding["recommendations"]
+        )
+        db.add(new_exposure)
+        created_exposures.append(new_exposure)
+
     scan.status = "completed"
     scan.progress = 100
     db.commit()
-
-    for e in created_entities:
-        db.refresh(e)
 
     return {
         "message": f"GitHub scan completed for '{username}'",
         "source_id": str(new_source.id),
         "entities_found": len(created_entities),
+        "exposures_found": len(created_exposures),
         "entities": [
             {"entity_type": e.entity_type, "value": e.value}
             for e in created_entities
+        ],
+        "exposures": [
+            {"title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score}
+            for exp in created_exposures
         ]
     }
