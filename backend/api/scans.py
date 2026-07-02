@@ -8,6 +8,9 @@ from models.sources import Source
 from models.entities import Entity
 from models.exposures import Exposure
 from schemas.scans import ScanFullReport
+from scrapers.social.github_scraper import fetch_github_profile, extract_entities_from_github
+from models.sources import Source
+from models.entities import Entity
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -50,3 +53,56 @@ def get_full_report(scan_id: str, db: Session = Depends(get_db)):
         entities=entities,
         exposures=exposures
     )
+
+@router.post("/{scan_id}/scan-github/{username}")
+async def scan_github_profile(scan_id: str, username: str, db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    profile_data = await fetch_github_profile(username)
+
+    if profile_data is None:
+        raise HTTPException(status_code=404, detail=f"GitHub user '{username}' not found")
+
+    new_source = Source(
+        scan_id=scan_id,
+        platform="github",
+        url=profile_data.get("html_url"),
+        data_type="profile",
+        raw_data_json=profile_data
+    )
+    db.add(new_source)
+    db.commit()
+    db.refresh(new_source)
+
+    extracted = extract_entities_from_github(profile_data)
+    created_entities = []
+
+    for item in extracted:
+        new_entity = Entity(
+            scan_id=scan_id,
+            source_id=new_source.id,
+            entity_type=item["entity_type"],
+            value=item["value"],
+            confidence_score=item["confidence_score"]
+        )
+        db.add(new_entity)
+        created_entities.append(new_entity)
+
+    scan.status = "completed"
+    scan.progress = 100
+    db.commit()
+
+    for e in created_entities:
+        db.refresh(e)
+
+    return {
+        "message": f"GitHub scan completed for '{username}'",
+        "source_id": str(new_source.id),
+        "entities_found": len(created_entities),
+        "entities": [
+            {"entity_type": e.entity_type, "value": e.value}
+            for e in created_entities
+        ]
+    }
