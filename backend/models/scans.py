@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP, JSON, ForeignKey
+from sqlalchemy import Column, String, Integer, TIMESTAMP, JSON, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
@@ -16,3 +16,6 @@ class Scan(Base):
     config_json = Column(JSON, nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     completed_at = Column(TIMESTAMP, nullable=True)
+    is_monitored = Column(Boolean, default=False)
+    scan_interval_hours = Column(Integer, default=24)
+    last_scanned_at = Column(TIMESTAMP, nullable=True)

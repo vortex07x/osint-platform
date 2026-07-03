@@ -20,12 +20,19 @@ class ScanResponse(BaseModel):
     progress: int
     created_at: datetime
     completed_at: Optional[datetime] = None
+    is_monitored: bool = False
+    scan_interval_hours: int = 24
+    last_scanned_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True
+        from_attributes = True  
 
 
 class ScanFullReport(ScanResponse):
     sources: List[SourceResponse] = []
     entities: List[EntityResponse] = []
     exposures: List[ExposureResponse] = []
+
+class MonitoringUpdate(BaseModel):
+    is_monitored: bool
+    scan_interval_hours: Optional[int] = 24

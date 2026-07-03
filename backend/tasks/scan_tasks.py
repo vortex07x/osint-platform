@@ -7,7 +7,8 @@ from models.entities import Entity
 from models.exposures import Exposure
 from scrapers.social.github_scraper import fetch_github_profile, extract_entities_from_github
 from ai_engine.risk.risk_engine import analyze_entities
-
+from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 @celery_app.task(name="run_github_scan")
 def run_github_scan_task(scan_id: str, username: str):
@@ -93,5 +94,41 @@ def run_github_scan_task(scan_id: str, username: str):
         scan.status = "failed"
         db.commit()
         return {"error": str(e)}
+    finally:
+        db.close()
+
+@celery_app.task(name="check_monitored_scans")
+def check_monitored_scans():
+    """
+    Runs periodically (via Celery Beat). Finds all monitored scans that are
+    due for a re-scan based on their interval, and re-triggers the GitHub scan.
+    """
+    db = SessionLocal()
+    try:
+        monitored_scans = db.query(Scan).filter(Scan.is_monitored == True).all()
+
+        triggered = []
+        now = datetime.now(timezone.utc)
+
+        for scan in monitored_scans:
+            due = False
+            if scan.last_scanned_at is None:
+                due = True
+            else:
+                last_scanned = scan.last_scanned_at
+                if last_scanned.tzinfo is None:
+                    last_scanned = last_scanned.replace(tzinfo=timezone.utc)
+
+                next_due = last_scanned + timedelta(hours=scan.scan_interval_hours)
+                if now >= next_due:
+                    due = True
+
+            if due and scan.scan_type == "username":
+                run_github_scan_task.delay(str(scan.id), scan.target_identifier)
+                scan.last_scanned_at = datetime.now(timezone.utc)
+                triggered.append(str(scan.id))
+
+        db.commit()
+        return {"checked": len(monitored_scans), "triggered": triggered}
     finally:
         db.close()
