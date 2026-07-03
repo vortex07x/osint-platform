@@ -146,7 +146,8 @@ async def scan_username_cross_platform(scan_id: str, username: str, db: Session 
 
     results = await check_username_across_platforms(username)
 
-    found_platforms = [r for r in results if r["exists"]]
+    found_platforms = [r for r in results if r["exists"] and r["confidence"] == "high"]
+    unverified_platforms = [r for r in results if r["exists"] and r["confidence"] == "low"]
 
     created_sources = []
     created_entities = []
@@ -206,8 +207,10 @@ async def scan_username_cross_platform(scan_id: str, username: str, db: Session 
     return {
         "message": f"Username scan completed for '{username}'",
         "platforms_checked": len(results),
-        "platforms_found": len(found_platforms),
-        "found_on": [p["platform"] for p in found_platforms],
+        "platforms_found_verified": len(found_platforms),
+        "found_on_verified": [p["platform"] for p in found_platforms],
+        "platforms_found_unverified": len(unverified_platforms),
+        "found_on_unverified": [p["platform"] for p in unverified_platforms],
         "entities_found": len(created_entities),
         "exposures_found": len(created_exposures),
         "exposures": [
