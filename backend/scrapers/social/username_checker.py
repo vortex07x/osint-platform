@@ -1,7 +1,12 @@
 """
 Cross-platform username existence checker.
 Uses confidence levels since not all platforms are equally reliable to check
-without a full browser (anti-bot measures on Instagram/Twitter/TikTok).
+without a full browser or authenticated API access.
+
+Note: Reddit's Data API now requires explicit platform approval (per Reddit's
+Responsible Builder Policy), which is outside the scope of this project.
+Reddit is therefore checked via basic HTML heuristics like other low-confidence
+platforms, rather than their official API.
 """
 
 import httpx
@@ -24,48 +29,23 @@ async def check_github(client: httpx.AsyncClient, username: str):
         return {"platform": "github", "url": None, "exists": False, "confidence": "high", "error": str(e)}
 
 
-async def check_reddit(client: httpx.AsyncClient, username: str):
-    """
-    Medium-high confidence: JSON API, but we inspect the body
-    since Reddit sometimes returns 200 with an error payload instead of 404.
-    """
-    url = f"https://www.reddit.com/user/{username}/about.json"
-    try:
-        r = await client.get(url, headers={"User-Agent": "OSINT-Platform/1.0"}, timeout=10.0)
-        exists = False
-        if r.status_code == 200:
-            try:
-                data = r.json()
-                exists = "data" in data and data["data"].get("name", "").lower() == username.lower()
-            except Exception:
-                exists = False
-        return {
-            "platform": "reddit",
-            "url": f"https://www.reddit.com/user/{username}",
-            "exists": exists,
-            "confidence": "high",
-            "status_code": r.status_code
-        }
-    except Exception as e:
-        return {"platform": "reddit", "url": None, "exists": False, "confidence": "high", "error": str(e)}
-
-
 async def check_low_confidence_platform(client: httpx.AsyncClient, platform: str, url_template: str, username: str):
     """
-    Low confidence: platforms without a public API. We can only guess based on
-    status code + simple text heuristics, which are unreliable against anti-bot pages.
+    Low confidence: platforms without accessible public APIs. We can only guess
+    based on status code + simple text heuristics, which are unreliable against
+    anti-bot pages and blocked requests (e.g. Reddit's 403 on non-browser clients).
     """
     url = url_template.format(username=username)
     try:
         r = await client.get(
             url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"},
             follow_redirects=True,
             timeout=10.0
         )
         body = r.text.lower()
 
-        not_found_signals = ["page not found", "user not found", "sorry, this page", "content isn't available"]
+        not_found_signals = ["page not found", "user not found", "sorry, this page", "content isn't available", "nobody on reddit goes by that name"]
         looks_missing = any(signal in body for signal in not_found_signals)
 
         exists_guess = r.status_code == 200 and not looks_missing
@@ -85,6 +65,7 @@ LOW_CONFIDENCE_PLATFORMS = {
     "instagram": "https://www.instagram.com/{username}/",
     "twitter": "https://x.com/{username}",
     "tiktok": "https://www.tiktok.com/@{username}",
+    "reddit": "https://www.reddit.com/user/{username}/",
 }
 
 
@@ -96,7 +77,6 @@ async def check_username_across_platforms(username: str):
     async with httpx.AsyncClient() as client:
         tasks = [
             check_github(client, username),
-            check_reddit(client, username),
         ]
         tasks += [
             check_low_confidence_platform(client, platform, url_template, username)
