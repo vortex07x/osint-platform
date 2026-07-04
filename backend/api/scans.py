@@ -16,6 +16,7 @@ from ai_engine.risk.risk_engine import analyze_entities
 from scrapers.social.username_checker import check_username_across_platforms
 from tasks.scan_tasks import run_github_scan_task
 from schemas.scans import MonitoringUpdate
+from db.graph_sync import get_scan_graph
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -248,3 +249,12 @@ def update_monitoring(scan_id: str, update: MonitoringUpdate, db: Session = Depe
     db.commit()
     db.refresh(scan)
     return scan
+
+@router.get("/{scan_id}/graph")
+def get_scan_graph_endpoint(scan_id: str, db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    graph_data = get_scan_graph(scan_id)
+    return graph_data

@@ -9,6 +9,7 @@ from scrapers.social.github_scraper import fetch_github_profile, extract_entitie
 from ai_engine.risk.risk_engine import analyze_entities
 from datetime import datetime, timedelta
 from datetime import datetime, timedelta, timezone
+from db.graph_sync import sync_scan_to_graph
 
 @celery_app.task(name="run_github_scan")
 def run_github_scan_task(scan_id: str, username: str):
@@ -67,6 +68,7 @@ def run_github_scan_task(scan_id: str, username: str):
         ]
         exposure_findings = analyze_entities(entity_dicts)
 
+        created_exposure_objs = []
         for finding in exposure_findings:
             new_exposure = Exposure(
                 scan_id=scan_id,
@@ -79,6 +81,28 @@ def run_github_scan_task(scan_id: str, username: str):
                 recommendations=finding["recommendations"]
             )
             db.add(new_exposure)
+            created_exposure_objs.append(new_exposure)
+
+        db.commit()
+        for ex in created_exposure_objs:
+            db.refresh(ex)
+
+        try:
+            sync_scan_to_graph(
+                scan_id=str(scan.id),
+                target_identifier=scan.target_identifier,
+                sources=[{"id": new_source.id, "platform": new_source.platform, "url": new_source.url}],
+                entities=[
+                    {"id": e.id, "entity_type": e.entity_type, "value": e.value, "source_id": e.source_id}
+                    for e in created_entities
+                ],
+                exposures=[
+                    {"id": ex.id, "title": ex.title, "severity": ex.severity, "risk_score": ex.risk_score, "affected_entities": ex.affected_entities}
+                    for ex in created_exposure_objs
+                ]
+            )
+        except Exception as graph_error:
+            print(f"[GRAPH SYNC WARNING] Failed to sync to Neo4j: {graph_error}")
 
         scan.status = "completed"
         scan.progress = 100
@@ -87,7 +111,7 @@ def run_github_scan_task(scan_id: str, username: str):
         return {
             "status": "completed",
             "entities_found": len(created_entities),
-            "exposures_found": len(exposure_findings)
+            "exposures_found": len(created_exposure_objs)
         }
 
     except Exception as e:

@@ -11,6 +11,7 @@ from api.scans import router as scans_router
 from api.sources import router as sources_router
 from api.entities import router as entities_router
 from api.exposures import router as exposures_router
+from db.neo4j_client import get_neo4j_session
 
 app = FastAPI(title="OSINT Platform API")
 app.add_middleware(
@@ -37,3 +38,10 @@ def health_check():
 def test_db(db: Session = Depends(get_db)):
     result = db.execute(text("SELECT 1"))
     return {"database": "connected", "result": result.scalar()}
+
+@app.get("/neo4j-test")
+def test_neo4j():
+    with get_neo4j_session() as session:
+        result = session.run("RETURN 'Neo4j connected!' AS message")
+        record = result.single()
+        return {"neo4j": record["message"]}
