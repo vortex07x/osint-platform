@@ -10,11 +10,15 @@ function Dashboard() {
   const [scanType, setScanType] = useState('username')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [selectedFile, setSelectedFile] = useState(null)
 
   const fetchScans = async () => {
     try {
       const response = await axios.get(`${API_URL}/scans/`)
-      setScans(response.data.reverse())
+      const sorted = [...response.data].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      )
+      setScans(sorted)
     } catch (error) {
       console.error('Error fetching scans:', error)
     }
@@ -26,6 +30,34 @@ function Dashboard() {
 
   const handleCreateScan = async (e) => {
     e.preventDefault()
+
+    if (scanType === 'image') {
+      if (!selectedFile) return
+      setLoading(true)
+      try {
+        const scanRes = await axios.post(`${API_URL}/scans/`, {
+          target_identifier: selectedFile.name,
+          scan_type: 'image',
+          config_json: {}
+        })
+
+        const formData = new FormData()
+        formData.append('file', selectedFile)
+
+        await axios.post(`${API_URL}/scans/${scanRes.data.id}/scan-image`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+
+        setSelectedFile(null)
+        fetchScans()
+      } catch (error) {
+        console.error('Error creating image scan:', error)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     if (!targetIdentifier.trim()) return
 
     setLoading(true)
@@ -68,13 +100,25 @@ function Dashboard() {
       </header>
 
       <form onSubmit={handleCreateScan} className="scan-form">
-        <input
-          type="text"
-          placeholder="ENTER TARGET (username, email...)"
-          value={targetIdentifier}
-          onChange={(e) => setTargetIdentifier(e.target.value)}
-          className="input-field"
-        />
+        {scanType === 'image' ? (
+          <label className="file-input-label">
+            {selectedFile ? selectedFile.name : 'CHOOSE IMAGE FILE...'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setSelectedFile(e.target.files[0])}
+              style={{ display: 'none' }}
+            />
+          </label>
+        ) : (
+          <input
+            type="text"
+            placeholder="ENTER TARGET (username, email...)"
+            value={targetIdentifier}
+            onChange={(e) => setTargetIdentifier(e.target.value)}
+            className="input-field"
+          />
+        )}
         <select
           value={scanType}
           onChange={(e) => setScanType(e.target.value)}
@@ -83,9 +127,10 @@ function Dashboard() {
           <option value="username">USERNAME</option>
           <option value="email">EMAIL</option>
           <option value="domain">DOMAIN</option>
+          <option value="image">IMAGE</option>
         </select>
         <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? 'QUEUING...' : 'START SCAN'}
+          {loading ? (scanType === 'image' ? 'ANALYZING IMAGE...' : 'QUEUING...') : 'START SCAN'}
         </button>
       </form>
 

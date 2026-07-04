@@ -19,6 +19,7 @@ from schemas.scans import MonitoringUpdate
 from db.graph_sync import get_scan_graph
 from fastapi import UploadFile, File
 from ai_engine.vision.exif_extractor import extract_exif_from_image_bytes, extract_entities_from_exif
+from db.graph_sync import sync_scan_to_graph
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -323,6 +324,27 @@ async def scan_image(scan_id: str, file: UploadFile = File(...), db: Session = D
         )
         db.add(new_exposure)
         created_exposures.append(new_exposure)
+
+    db.commit()
+    for exp in created_exposures:
+        db.refresh(exp)
+
+    try:
+        sync_scan_to_graph(
+            scan_id=str(scan.id),
+            target_identifier=scan.target_identifier,
+            sources=[{"id": new_source.id, "platform": new_source.platform, "url": new_source.url}],
+            entities=[
+                {"id": e.id, "entity_type": e.entity_type, "value": e.value, "source_id": e.source_id}
+                for e in created_entities
+            ],
+            exposures=[
+                {"id": exp.id, "title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score, "affected_entities": exp.affected_entities}
+                for exp in created_exposures
+            ]
+        )
+    except Exception as graph_error:
+        print(f"[GRAPH SYNC WARNING] Failed to sync to Neo4j: {graph_error}")
 
     scan.status = "completed"
     scan.progress = 100
