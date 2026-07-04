@@ -294,3 +294,66 @@ body {
   font-size: 11px;
   color: #4B5563;
 }
+
+.header-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.monitor-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #16181D;
+  border: 1px solid #2A2D35;
+  color: #6B7280;
+  padding: 10px 18px;
+  border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.monitor-toggle:hover:not(:disabled) {
+  border-color: #FF4D2D;
+  color: #FF4D2D;
+}
+
+.monitor-toggle.active {
+  border-color: #4ADE80;
+  color: #4ADE80;
+}
+
+.monitor-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.monitor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.monitor-toggle.active .monitor-dot {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.monitor-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #4ADE80;
+  letter-spacing: 1px;
+  margin-top: 10px;
+}

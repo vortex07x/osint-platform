@@ -10,6 +10,7 @@ function ScanResults() {
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [toggling, setToggling] = useState(false)
 
   const fetchReport = async () => {
     try {
@@ -20,6 +21,21 @@ function ScanResults() {
       setError('Scan not found or failed to load.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleToggleMonitoring = async () => {
+    setToggling(true)
+    try {
+      await axios.patch(`${API_URL}/scans/${scanId}/monitoring`, {
+        is_monitored: !report.is_monitored,
+        scan_interval_hours: report.scan_interval_hours || 24
+      })
+      fetchReport()
+    } catch (err) {
+      console.error('Error toggling monitoring:', err)
+    } finally {
+      setToggling(false)
     }
   }
 
@@ -63,13 +79,34 @@ function ScanResults() {
       <button className="back-link" onClick={() => navigate('/')}>← BACK TO DASHBOARD</button>
 
       <header className="dashboard-header">
-        <h1 className="brand-title">{report.target_identifier}</h1>
-        <p className="brand-subtitle">
-          SCAN TYPE: {report.scan_type.toUpperCase()} · STATUS:{' '}
-          <span style={{ color: report.status === 'completed' ? '#4ADE80' : '#FF4D2D' }}>
-            {report.status.toUpperCase()}
-          </span>
-        </p>
+        <div className="header-top-row">
+          <div>
+            <h1 className="brand-title">{report.target_identifier}</h1>
+            <p className="brand-subtitle">
+              SCAN TYPE: {report.scan_type.toUpperCase()} · STATUS:{' '}
+              <span style={{ color: report.status === 'completed' ? '#4ADE80' : '#FF4D2D' }}>
+                {report.status.toUpperCase()}
+              </span>
+            </p>
+          </div>
+
+          {report.scan_type === 'username' && (
+            <button
+              className={`monitor-toggle ${report.is_monitored ? 'active' : ''}`}
+              onClick={handleToggleMonitoring}
+              disabled={toggling}
+            >
+              <span className="monitor-dot" />
+              {report.is_monitored ? 'MONITORING ACTIVE' : 'ENABLE MONITORING'}
+            </button>
+          )}
+        </div>
+        {report.is_monitored && (
+          <p className="monitor-info">
+            AUTO-RESCANNING EVERY {report.scan_interval_hours}H · LAST CHECKED:{' '}
+            {report.last_scanned_at ? new Date(report.last_scanned_at).toLocaleString() : 'PENDING FIRST CHECK'}
+          </p>
+        )}
       </header>
 
       {/* Risk Overview */}
