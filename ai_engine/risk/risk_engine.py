@@ -61,6 +61,34 @@ ENTITY_RISK_PROFILES = {
         "title": "Username reused across platforms",
         "recommendation": "Reusing usernames makes it easier to correlate your activity across platforms."
     },
+    "gps_location": {
+        "category": "personal",
+        "severity": "high",
+        "base_score": 70,
+        "title": "Precise GPS location embedded in image",
+        "recommendation": "Strip EXIF metadata before sharing photos publicly, or disable location tagging in your camera/phone settings."
+    },
+    "device": {
+        "category": "behavioral",
+        "severity": "low",
+        "base_score": 15,
+        "title": "Device/camera model identifiable from image metadata",
+        "recommendation": "Generally low risk, but can contribute to device fingerprinting across multiple photos."
+    },
+    "photo_timestamp": {
+        "category": "behavioral",
+        "severity": "low",
+        "base_score": 10,
+        "title": "Exact photo capture timestamp exposed",
+        "recommendation": "Can reveal patterns in your routine when combined with other photos."
+    },
+    "editing_software": {
+        "category": "behavioral",
+        "severity": "low",
+        "base_score": 5,
+        "title": "Photo editing software identified",
+        "recommendation": "Minimal risk on its own."
+    },
 }
 
 DEFAULT_RISK_PROFILE = {
