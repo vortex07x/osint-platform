@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import ExposureGraph from '../components/ExposureGraph'
 
 const API_URL = 'http://127.0.0.1:8000'
 
@@ -194,6 +195,12 @@ function ScanResults() {
             </div>
           ))
         )}
+      </div>
+
+      {/* Exposure Graph */}
+      <div className="panel" style={{ marginTop: '24px' }}>
+        <h2 className="section-label">// EXPOSURE GRAPH</h2>
+        <ExposureGraph scanId={scanId} />
       </div>
     </div>
   )
