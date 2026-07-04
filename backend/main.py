@@ -12,6 +12,7 @@ from api.sources import router as sources_router
 from api.entities import router as entities_router
 from api.exposures import router as exposures_router
 from db.neo4j_client import get_neo4j_session
+from api.auth import router as auth_router
 
 app = FastAPI(title="OSINT Platform API")
 app.add_middleware(
@@ -25,6 +26,7 @@ app.include_router(scans_router)
 app.include_router(sources_router)
 app.include_router(entities_router)
 app.include_router(exposures_router)
+app.include_router(auth_router)
 
 @app.get("/")
 def read_root():
