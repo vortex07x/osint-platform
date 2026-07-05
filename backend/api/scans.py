@@ -20,12 +20,15 @@ from db.graph_sync import get_scan_graph
 from fastapi import UploadFile, File
 from ai_engine.vision.exif_extractor import extract_exif_from_image_bytes, extract_entities_from_exif
 from db.graph_sync import sync_scan_to_graph
+from auth.dependencies import get_current_user
+from models.users import User
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
 @router.post("/", response_model=ScanResponse)
-def create_scan(scan: ScanCreate, db: Session = Depends(get_db)):
+def create_scan(scan: ScanCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     new_scan = Scan(
+        user_id=current_user.id,
         target_identifier=scan.target_identifier,
         scan_type=scan.scan_type,
         config_json=scan.config_json
@@ -36,8 +39,8 @@ def create_scan(scan: ScanCreate, db: Session = Depends(get_db)):
     return new_scan
 
 @router.get("/", response_model=List[ScanResponse])
-def list_scans(db: Session = Depends(get_db)):
-    return db.query(Scan).all()
+def list_scans(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(Scan).filter(Scan.user_id == current_user.id).all()
 
 @router.get("/{scan_id}", response_model=ScanResponse)
 def get_scan(scan_id: str, db: Session = Depends(get_db)):

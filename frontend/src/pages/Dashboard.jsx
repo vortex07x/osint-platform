@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 
 const API_URL = 'http://127.0.0.1:8000'
 
@@ -10,6 +11,7 @@ function Dashboard() {
   const [scanType, setScanType] = useState('username')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const [selectedFile, setSelectedFile] = useState(null)
 
   const fetchScans = async () => {
@@ -95,8 +97,20 @@ function Dashboard() {
       <div className="dotted-grid" />
 
       <header className="dashboard-header">
-        <h1 className="brand-title">OSINT // PLATFORM</h1>
-        <p className="brand-subtitle">MAPPING THE INVISIBLE FOOTPRINT</p>
+        <div className="header-top-row">
+          <div>
+            <h1 className="brand-title">OSINT // PLATFORM</h1>
+            <p className="brand-subtitle">MAPPING THE INVISIBLE FOOTPRINT</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>
+              {user?.email}
+            </p>
+            <button onClick={logout} className="back-link" style={{ marginBottom: 0 }}>
+              LOGOUT →
+            </button>
+          </div>
+        </div>
       </header>
 
       <form onSubmit={handleCreateScan} className="scan-form">
