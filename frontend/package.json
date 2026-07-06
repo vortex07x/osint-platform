@@ -11,12 +11,18 @@
   },
   "dependencies": {
     "axios": "^1.18.1",
+    "d3-geo": "^3.1.1",
+    "framer-motion": "^12.42.2",
     "leaflet": "^1.9.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-force-graph-2d": "^1.29.1",
+    "react-globe.gl": "^2.38.0",
     "react-leaflet": "^5.0.0",
-    "react-router-dom": "^7.18.1"
+    "react-router-dom": "^7.18.1",
+    "three": "^0.185.1",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
