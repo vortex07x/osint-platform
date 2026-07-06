@@ -1,0 +1,84 @@
+import { useEffect, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import axios from 'axios'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+
+const API_URL = 'http://127.0.0.1:8000'
+
+// Fix default marker icon paths (common Leaflet + bundler issue)
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
+
+function FitBounds({ locations }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (locations.length === 0) return
+
+    if (locations.length === 1) {
+      map.setView([locations[0].lat, locations[0].lon], 12)
+    } else {
+      const bounds = locations.map(loc => [loc.lat, loc.lon])
+      map.fitBounds(bounds, { padding: [40, 40] })
+    }
+  }, [locations, map])
+
+  return null
+}
+
+function LocationMap({ scanId }) {
+  const [locations, setLocations] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/scans/${scanId}/locations`)
+        setLocations(res.data.locations)
+      } catch (err) {
+        console.error('Error fetching locations:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchLocations()
+  }, [scanId])
+
+  if (loading) {
+    return <p className="empty-state-small">Loading map...</p>
+  }
+
+  if (locations.length === 0) {
+    return <p className="empty-state-small">No geolocation data found for this scan.</p>
+  }
+
+  const center = [locations[0].lat, locations[0].lon]
+
+  return (
+    <div style={{ border: '1px solid #2A2D35', borderRadius: '8px', overflow: 'hidden' }}>
+      <MapContainer center={center} zoom={10} style={{ height: '400px', width: '100%' }}>
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        />
+        <FitBounds locations={locations} />
+        {locations.map((loc) => (
+          <Marker key={loc.entity_id} position={[loc.lat, loc.lon]}>
+            <Popup>
+              <strong>{loc.label}</strong><br />
+              Source: {loc.source === 'exif' ? 'Image GPS metadata' : 'Geocoded from text'}<br />
+              {loc.lat.toFixed(6)}, {loc.lon.toFixed(6)}
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+    </div>
+  )
+}
+
+export default LocationMap

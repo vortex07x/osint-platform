@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import ExposureGraph from '../components/ExposureGraph'
+import LocationMap from '../components/LocationMap'
 
 const API_URL = 'http://127.0.0.1:8000'
 
@@ -201,6 +202,12 @@ function ScanResults() {
       <div className="panel" style={{ marginTop: '24px' }}>
         <h2 className="section-label">// EXPOSURE GRAPH</h2>
         <ExposureGraph scanId={scanId} />
+      </div>
+
+      {/* Location Map */}
+      <div className="panel" style={{ marginTop: '24px' }}>
+        <h2 className="section-label">// GEOLOCATION MAP</h2>
+        <LocationMap scanId={scanId} />
       </div>
     </div>
   )
