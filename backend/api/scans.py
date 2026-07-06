@@ -22,6 +22,7 @@ from ai_engine.vision.exif_extractor import extract_exif_from_image_bytes, extra
 from db.graph_sync import sync_scan_to_graph
 from auth.dependencies import get_current_user
 from models.users import User
+from ai_engine.geo.geocoder import geocode_location
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -369,3 +370,40 @@ async def scan_image(scan_id: str, file: UploadFile = File(...), db: Session = D
             for exp in created_exposures
         ]
     }
+
+@router.get("/{scan_id}/locations")
+async def get_scan_locations(scan_id: str, db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    entities = db.query(Entity).filter(Entity.scan_id == scan_id).all()
+
+    locations = []
+
+    for entity in entities:
+        if entity.entity_type == "gps_location":
+            try:
+                lat_str, lon_str = entity.value.split(",")
+                locations.append({
+                    "entity_id": str(entity.id),
+                    "label": "GPS from image EXIF",
+                    "source": "exif",
+                    "lat": float(lat_str.strip()),
+                    "lon": float(lon_str.strip())
+                })
+            except Exception:
+                continue
+
+        elif entity.entity_type == "location":
+            coords = await geocode_location(entity.value)
+            if coords:
+                locations.append({
+                    "entity_id": str(entity.id),
+                    "label": entity.value,
+                    "source": "geocoded",
+                    "lat": coords["lat"],
+                    "lon": coords["lon"]
+                })
+
+    return {"scan_id": scan_id, "locations": locations}
