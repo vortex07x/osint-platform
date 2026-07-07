@@ -15,3 +15,5 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP, default=datetime.utcnow)
+    reset_otp = Column(String, nullable=True)
+    reset_otp_expires_at = Column(TIMESTAMP, nullable=True)
