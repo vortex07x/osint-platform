@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import CustomCursor from './components/CustomCursor'
 import Navbar from './components/Navbar'
 import './App.css'
+import About from './pages/About'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -29,6 +30,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/scan/:scanId" element={<ProtectedRoute><ScanResults /></ProtectedRoute>} />
+      <Route path="/about" element={<About />} />
     </Routes>
   )
 }

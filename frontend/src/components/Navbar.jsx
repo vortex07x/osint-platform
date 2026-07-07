@@ -25,7 +25,7 @@ function Navbar() {
       <div className="navbar-links">
         <Link to="/" className="navbar-link">HOME</Link>
         <Link to="/dashboard" className="navbar-link">DASHBOARD</Link>
-        <a href="#about" className="navbar-link">ABOUT</a>
+        <Link to="/about" className="navbar-link">ABOUT</Link>
       </div>
 
       <div className="navbar-auth">
