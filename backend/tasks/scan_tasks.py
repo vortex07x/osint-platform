@@ -1,5 +1,4 @@
 import asyncio
-from celery_app import celery_app
 from db.database import SessionLocal
 from models.scans import Scan
 from models.sources import Source
@@ -7,17 +6,18 @@ from models.entities import Entity
 from models.exposures import Exposure
 from scrapers.social.github_scraper import fetch_github_profile, extract_entities_from_github
 from ai_engine.risk.risk_engine import analyze_entities
-from datetime import datetime, timedelta
 from datetime import datetime, timedelta, timezone
 from db.graph_sync import sync_scan_to_graph
 
-@celery_app.task(name="run_github_scan")
+
 def run_github_scan_task(scan_id: str, username: str):
     """
-    Background task version of the GitHub scan.
-    Runs independently of the API request/response cycle.
+    Plain function version of the GitHub scan (previously a Celery task).
+    Called via FastAPI BackgroundTasks — runs in-process after the response
+    is sent, so it needs its own DB session.
     """
     db = SessionLocal()
+    scan = None
     try:
         scan = db.query(Scan).filter(Scan.id == scan_id).first()
         if not scan:
@@ -115,17 +115,19 @@ def run_github_scan_task(scan_id: str, username: str):
         }
 
     except Exception as e:
-        scan.status = "failed"
-        db.commit()
+        if scan:
+            scan.status = "failed"
+            db.commit()
         return {"error": str(e)}
     finally:
         db.close()
 
-@celery_app.task(name="check_monitored_scans")
+
 def check_monitored_scans():
     """
-    Runs periodically (via Celery Beat). Finds all monitored scans that are
-    due for a re-scan based on their interval, and re-triggers the GitHub scan.
+    Called by the Render Cron Job hitting /scans/internal/check-monitored-scans.
+    Finds all monitored scans that are due for a re-scan, and re-triggers them
+    synchronously (the cron call itself is the "background" context now).
     """
     db = SessionLocal()
     try:
@@ -148,11 +150,13 @@ def check_monitored_scans():
                     due = True
 
             if due and scan.scan_type == "username":
-                run_github_scan_task.delay(str(scan.id), scan.target_identifier)
                 scan.last_scanned_at = datetime.now(timezone.utc)
+                db.commit()
+                # Run inline — the cron endpoint request is already the
+                # "background" context, no separate queue to hand off to.
+                run_github_scan_task(str(scan.id), scan.target_identifier)
                 triggered.append(str(scan.id))
 
-        db.commit()
         return {"checked": len(monitored_scans), "triggered": triggered}
     finally:
         db.close()

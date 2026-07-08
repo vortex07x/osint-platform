@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
+import os
 from sqlalchemy.orm import Session
 from typing import List
 from db.database import get_db
@@ -14,7 +15,7 @@ from models.entities import Entity
 from ai_engine.risk.risk_engine import analyze_entities
 # from models.exposures import Exposure
 from scrapers.social.username_checker import check_username_across_platforms
-from tasks.scan_tasks import run_github_scan_task
+from tasks.scan_tasks import run_github_scan_task, check_monitored_scans
 from schemas.scans import MonitoringUpdate
 from db.graph_sync import get_scan_graph
 from fastapi import UploadFile, File
@@ -229,7 +230,7 @@ async def scan_username_cross_platform(scan_id: str, username: str, db: Session 
     }
 
 @router.post("/{scan_id}/scan-github-async/{username}")
-def scan_github_async(scan_id: str, username: str, db: Session = Depends(get_db)):
+def scan_github_async(scan_id: str, username: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
@@ -237,11 +238,10 @@ def scan_github_async(scan_id: str, username: str, db: Session = Depends(get_db)
     scan.status = "queued"
     db.commit()
 
-    task = run_github_scan_task.delay(scan_id, username)
+    background_tasks.add_task(run_github_scan_task, scan_id, username)
 
     return {
         "message": "Scan queued for background processing",
-        "task_id": task.id,
         "scan_id": scan_id
     }
 
@@ -407,3 +407,12 @@ async def get_scan_locations(scan_id: str, db: Session = Depends(get_db)):
                 })
 
     return {"scan_id": scan_id, "locations": locations}
+
+@router.post("/internal/check-monitored-scans")
+def trigger_monitored_scans(x_cron_secret: str = Header(...)):
+    expected_secret = os.getenv("CRON_SECRET")
+    if not expected_secret or x_cron_secret != expected_secret:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    result = check_monitored_scans()
+    return result
