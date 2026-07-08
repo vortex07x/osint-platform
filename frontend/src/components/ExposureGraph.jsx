@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import axios from 'axios'
 
-const API_URL = 'http://127.0.0.1:8000'
+const API_URL = import.meta.env.VITE_API_URL
 
 const NODE_COLORS = {
   target: '#FF4D2D',
@@ -40,17 +40,20 @@ function ExposureGraph({ scanId }) {
   }, [scanId])
 
   useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
+    if (!containerRef.current) return
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width
         setDimensions({
-          width: containerRef.current.offsetWidth,
-          height: 550
+          width,
+          height: width < 500 ? 350 : 550
         })
       }
-    }
-    updateSize()
-    window.addEventListener('resize', updateSize)
-    return () => window.removeEventListener('resize', updateSize)
+    })
+
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => {

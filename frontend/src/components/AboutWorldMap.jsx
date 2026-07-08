@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useState } from 'react'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { geoNaturalEarth1, geoPath } from 'd3-geo'
 import { feature } from 'topojson-client'
 import worldTopo from 'world-atlas/countries-110m.json'
@@ -18,6 +19,10 @@ const BLIP_LOCATIONS = [
   { lat: 1.3521, lng: 103.8198, delay: 0.5 },
 ]
 
+const MOBILE_BREAKPOINT = 768
+// How much wider than the screen the map renders on mobile (2.4x = plenty to pan across)
+const MOBILE_WIDTH_MULTIPLIER = 2.4
+
 function AboutWorldMap() {
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight })
 
@@ -27,9 +32,13 @@ function AboutWorldMap() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const isMobile = size.width <= MOBILE_BREAKPOINT
+  const svgWidth = isMobile ? Math.round(size.width * MOBILE_WIDTH_MULTIPLIER) : size.width
+  const svgHeight = size.height
+
   const { landPath, blips } = useMemo(() => {
     const world = feature(worldTopo, worldTopo.objects.countries)
-    const projection = geoNaturalEarth1().fitSize([size.width, size.height * 0.9], world)
+    const projection = geoNaturalEarth1().fitSize([svgWidth, svgHeight * 0.9], world)
     const pathGenerator = geoPath(projection)
 
     const path = pathGenerator(world)
@@ -39,11 +48,21 @@ function AboutWorldMap() {
     })
 
     return { landPath: path, blips: projectedBlips }
-  }, [size])
+  }, [svgWidth, svgHeight])
+
+  // Whole-page scroll progress drives horizontal pan — mobile only
+  const { scrollYProgress } = useScroll()
+  const maxPan = isMobile ? -(svgWidth - size.width) : 0
+  const x = useTransform(scrollYProgress, [0, 1], [0, maxPan])
 
   return (
     <div className="about-world-map-wrap">
-      <svg width={size.width} height={size.height} className="about-world-map-svg">
+      <motion.svg
+        width={svgWidth}
+        height={svgHeight}
+        className="about-world-map-svg"
+        style={isMobile ? { x } : undefined}
+      >
         <path d={landPath} className="about-world-map-fill" />
         {blips.map((b, i) => (
           <circle
@@ -55,7 +74,7 @@ function AboutWorldMap() {
             style={{ animationDelay: `${b.delay}s` }}
           />
         ))}
-      </svg>
+      </motion.svg>
     </div>
   )
 }

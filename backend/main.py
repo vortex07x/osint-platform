@@ -13,11 +13,18 @@ from api.entities import router as entities_router
 from api.exposures import router as exposures_router
 from db.neo4j_client import get_neo4j_session
 from api.auth import router as auth_router
+import os
 
 app = FastAPI(title="OSINT Platform API")
+
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

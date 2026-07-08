@@ -5,10 +5,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from celery import Celery
 from celery.schedules import crontab
 
+import os
+
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
 celery_app = Celery(
     "osint_platform",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0",
+    broker=redis_url,
+    backend=redis_url,
     include=["tasks.scan_tasks"]
 )
 

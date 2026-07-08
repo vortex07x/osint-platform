@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import ExposureGraph from '../components/ExposureGraph'
 import LocationMap from '../components/LocationMap'
+import ExpandablePanel from '../components/ExpandablePanel'
 
-const API_URL = 'http://127.0.0.1:8000'
+const API_URL = import.meta.env.VITE_API_URL
 
 function ScanResults() {
   const { scanId } = useParams()
@@ -201,13 +202,17 @@ function ScanResults() {
       {/* Exposure Graph */}
       <div className="panel" style={{ marginTop: '24px' }}>
         <h2 className="section-label">// EXPOSURE GRAPH</h2>
-        <ExposureGraph scanId={scanId} />
+        <ExpandablePanel title="Exposure Graph">
+          <ExposureGraph scanId={scanId} />
+        </ExpandablePanel>
       </div>
 
       {/* Location Map */}
       <div className="panel" style={{ marginTop: '24px' }}>
         <h2 className="section-label">// GEOLOCATION MAP</h2>
-        <LocationMap scanId={scanId} />
+        <ExpandablePanel title="Geolocation Map">
+          <LocationMap scanId={scanId} />
+        </ExpandablePanel>
       </div>
     </div>
   )

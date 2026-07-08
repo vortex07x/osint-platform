@@ -4,9 +4,8 @@ import axios from 'axios'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-const API_URL = 'http://127.0.0.1:8000'
+const API_URL = import.meta.env.VITE_API_URL
 
-// Fix default marker icon paths (common Leaflet + bundler issue)
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -27,6 +26,23 @@ function FitBounds({ locations }) {
       map.fitBounds(bounds, { padding: [40, 40] })
     }
   }, [locations, map])
+
+  return null
+}
+
+function MapResizeHandler() {
+  const map = useMap()
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize()
+    })
+
+    const container = map.getContainer()
+    observer.observe(container)
+
+    return () => observer.disconnect()
+  }, [map])
 
   return null
 }
@@ -61,12 +77,13 @@ function LocationMap({ scanId }) {
 
   return (
     <div style={{ border: '1px solid #2A2D35', borderRadius: '8px', overflow: 'hidden' }}>
-      <MapContainer center={center} zoom={10} style={{ height: '400px', width: '100%' }}>
+      <MapContainer center={center} zoom={10} className="location-map-container">
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
         <FitBounds locations={locations} />
+        <MapResizeHandler />
         {locations.map((loc) => (
           <Marker key={loc.entity_id} position={[loc.lat, loc.lon]}>
             <Popup>
