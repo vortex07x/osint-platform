@@ -10,8 +10,14 @@ import io
 
 def _convert_to_degrees(value):
     """Converts GPS coordinates stored as (degrees, minutes, seconds) to decimal degrees."""
-    d, m, s = value
-    return float(d) + (float(m) / 60.0) + (float(s) / 3600.0)
+    try:
+        d, m, s = value
+        degrees = float(d) + (float(m) / 60.0) + (float(s) / 3600.0)
+        if degrees != degrees:  # NaN check (NaN is the only value that doesn't equal itself)
+            return None
+        return degrees
+    except (ZeroDivisionError, ValueError, TypeError):
+        return None
 
 
 def extract_exif_from_image_bytes(image_bytes: bytes):
@@ -64,12 +70,13 @@ def extract_exif_from_image_bytes(image_bytes: bytes):
             lat = _convert_to_degrees(gps_info["GPSLatitude"])
             lon = _convert_to_degrees(gps_info["GPSLongitude"])
 
-            if gps_info.get("GPSLatitudeRef") == "S":
-                lat = -lat
-            if gps_info.get("GPSLongitudeRef") == "W":
-                lon = -lon
+            if lat is not None and lon is not None:
+                if gps_info.get("GPSLatitudeRef") == "S":
+                    lat = -lat
+                if gps_info.get("GPSLongitudeRef") == "W":
+                    lon = -lon
 
-            result["gps"] = {"lat": round(lat, 6), "lon": round(lon, 6)}
+                result["gps"] = {"lat": round(lat, 6), "lon": round(lon, 6)}
 
     except Exception as e:
         result["error"] = str(e)
