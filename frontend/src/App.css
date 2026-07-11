@@ -305,8 +305,16 @@ body {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   color: #FF4D2D;
-  min-width: 90px;
+  /* min-width: 90px; */
 }
+
+.source-platform-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
+}
+
 .source-url {
   flex: 1;
   color: #9CA3AF;

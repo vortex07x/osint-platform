@@ -5,6 +5,7 @@ import ExposureGraph from '../components/ExposureGraph'
 import LocationMap from '../components/LocationMap'
 import ExpandablePanel from '../components/ExpandablePanel'
 import { useRef } from 'react'
+import { PlatformIcon, getPlatformLabel } from '../utils/platformIcons'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -189,17 +190,16 @@ function ScanResults() {
       {/* Sources */}
       <div className="panel" style={{ marginTop: '24px' }}>
         <h2 className="section-label">// SOURCES</h2>
-        {report.sources.length === 0 ? (
-          <p className="empty-state-small">No sources collected yet.</p>
-        ) : (
-          report.sources.map((src) => (
-            <div key={src.id} className="source-row">
-              <span className="source-platform">{src.platform.toUpperCase()}</span>
-              <a href={src.url} target="_blank" rel="noreferrer" className="source-url">{src.url}</a>
-              <span className="source-date">{new Date(src.collected_at).toLocaleString()}</span>
-            </div>
-          ))
-        )}
+        {report.sources.map((src) => (
+  <div key={src.id} className="source-row">
+    <span className="source-platform-badge">
+      <PlatformIcon platform={src.platform} />
+      <span className="source-platform">{getPlatformLabel(src.platform)}</span>
+    </span>
+    <a href={src.url} target="_blank" rel="noreferrer" className="source-url">{src.url}</a>
+    <span className="source-date">{new Date(src.collected_at).toLocaleString()}</span>
+  </div>
+))}
       </div>
 
       {/* Exposure Graph */}
