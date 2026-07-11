@@ -110,3 +110,21 @@ def client(db_session, test_user):
         yield c
 
     app_module.app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def auth_client(db_session):
+    """
+    Like `client`, but does NOT override get_current_user — real JWT
+    verification runs, so this is needed for any test that exercises
+    actual auth logic (login, register, /me, token validation).
+    """
+    def override_get_db():
+        yield db_session
+
+    app_module.app.dependency_overrides[get_db] = override_get_db
+
+    with TestClient(app_module.app) as c:
+        yield c
+
+    app_module.app.dependency_overrides.clear()
