@@ -39,7 +39,7 @@ app.include_router(auth_router)
 def read_root():
     return {"message": "OSINT Platform API is running"}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "healthy"}
 
