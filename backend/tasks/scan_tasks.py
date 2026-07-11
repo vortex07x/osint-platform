@@ -169,6 +169,9 @@ def run_username_check_task(scan_id: str, username: str):
         created_entities = []
 
         for platform_result in found_platforms:
+            if platform_result["platform"] == "github":
+                continue
+
             new_source = Source(
                 scan_id=scan_id,
                 platform=platform_result["platform"],

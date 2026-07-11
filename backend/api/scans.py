@@ -284,110 +284,131 @@ def get_scan_graph_endpoint(scan_id: str, db: Session = Depends(get_db)):
     graph_data = get_scan_graph(scan_id)
     return graph_data
 
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
 @router.post("/{scan_id}/scan-image")
 async def scan_image(scan_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    image_bytes = await file.read()
-    exif_result = extract_exif_from_image_bytes(image_bytes)
-
-    new_source = Source(
-        scan_id=scan_id,
-        platform="image_upload",
-        url=None,
-        data_type="image_exif",
-        raw_data_json={
-            "filename": file.filename,
-            "content_type": file.content_type,
-            **{k: v for k, v in exif_result.items() if k != "raw_exif" or True}
-        }
-    )
-    db.add(new_source)
-    db.commit()
-    db.refresh(new_source)
-
-    extracted = extract_entities_from_exif(exif_result)
-    created_entities = []
-
-    for item in extracted:
-        new_entity = Entity(
-            scan_id=scan_id,
-            source_id=new_source.id,
-            entity_type=item["entity_type"],
-            value=item["value"],
-            confidence_score=item["confidence_score"]
-        )
-        db.add(new_entity)
-        created_entities.append(new_entity)
-
-    db.commit()
-    for e in created_entities:
-        db.refresh(e)
-
-    entity_dicts = [
-        {"id": e.id, "entity_type": e.entity_type, "value": e.value}
-        for e in created_entities
-    ]
-    exposure_findings = analyze_entities(entity_dicts)
-
-    created_exposures = []
-    for finding in exposure_findings:
-        new_exposure = Exposure(
-            scan_id=scan_id,
-            category=finding["category"],
-            severity=finding["severity"],
-            title=finding["title"],
-            description=finding["description"],
-            risk_score=finding["risk_score"],
-            affected_entities=finding["affected_entities"],
-            recommendations=finding["recommendations"]
-        )
-        db.add(new_exposure)
-        created_exposures.append(new_exposure)
-
-    db.commit()
-    for exp in created_exposures:
-        db.refresh(exp)
-
     try:
-        sync_scan_to_graph(
-            scan_id=str(scan.id),
-            target_identifier=scan.target_identifier,
-            sources=[{"id": new_source.id, "platform": new_source.platform, "url": new_source.url}],
-            entities=[
-                {"id": e.id, "entity_type": e.entity_type, "value": e.value, "source_id": e.source_id}
-                for e in created_entities
-            ],
-            exposures=[
-                {"id": exp.id, "title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score, "affected_entities": exp.affected_entities}
+        image_bytes = await file.read()
+
+        if len(image_bytes) == 0:
+            raise ValueError("Uploaded file is empty")
+
+        if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
+            raise ValueError(f"Image exceeds max size of {MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB")
+
+        exif_result = extract_exif_from_image_bytes(image_bytes)
+
+        new_source = Source(
+            scan_id=scan_id,
+            platform="image_upload",
+            url=None,
+            data_type="image_exif",
+            raw_data_json={
+                "filename": file.filename,
+                "content_type": file.content_type,
+                **{k: v for k, v in exif_result.items() if k != "raw_exif" or True}
+            }
+        )
+        db.add(new_source)
+        db.commit()
+        db.refresh(new_source)
+
+        extracted = extract_entities_from_exif(exif_result)
+        created_entities = []
+
+        for item in extracted:
+            new_entity = Entity(
+                scan_id=scan_id,
+                source_id=new_source.id,
+                entity_type=item["entity_type"],
+                value=item["value"],
+                confidence_score=item["confidence_score"]
+            )
+            db.add(new_entity)
+            created_entities.append(new_entity)
+
+        db.commit()
+        for e in created_entities:
+            db.refresh(e)
+
+        entity_dicts = [
+            {"id": e.id, "entity_type": e.entity_type, "value": e.value}
+            for e in created_entities
+        ]
+        exposure_findings = analyze_entities(entity_dicts)
+
+        created_exposures = []
+        for finding in exposure_findings:
+            new_exposure = Exposure(
+                scan_id=scan_id,
+                category=finding["category"],
+                severity=finding["severity"],
+                title=finding["title"],
+                description=finding["description"],
+                risk_score=finding["risk_score"],
+                affected_entities=finding["affected_entities"],
+                recommendations=finding["recommendations"]
+            )
+            db.add(new_exposure)
+            created_exposures.append(new_exposure)
+
+        db.commit()
+        for exp in created_exposures:
+            db.refresh(exp)
+
+        try:
+            sync_scan_to_graph(
+                scan_id=str(scan.id),
+                target_identifier=scan.target_identifier,
+                sources=[{"id": new_source.id, "platform": new_source.platform, "url": new_source.url}],
+                entities=[
+                    {"id": e.id, "entity_type": e.entity_type, "value": e.value, "source_id": e.source_id}
+                    for e in created_entities
+                ],
+                exposures=[
+                    {"id": exp.id, "title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score, "affected_entities": exp.affected_entities}
+                    for exp in created_exposures
+                ]
+            )
+        except Exception as graph_error:
+            print(f"[GRAPH SYNC WARNING] Failed to sync to Neo4j: {graph_error}")
+
+        scan.status = "completed"
+        scan.progress = 100
+        db.commit()
+
+        return {
+            "message": f"Image scan completed for '{file.filename}'",
+            "source_id": str(new_source.id),
+            "exif_summary": {
+                "gps": exif_result.get("gps"),
+                "camera_make": exif_result.get("camera_make"),
+                "camera_model": exif_result.get("camera_model"),
+                "datetime_original": exif_result.get("datetime_original"),
+            },
+            "entities_found": len(created_entities),
+            "exposures_found": len(created_exposures),
+            "exposures": [
+                {"title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score}
                 for exp in created_exposures
             ]
-        )
-    except Exception as graph_error:
-        print(f"[GRAPH SYNC WARNING] Failed to sync to Neo4j: {graph_error}")
+        }
 
-    scan.status = "completed"
-    scan.progress = 100
-    db.commit()
+    except ValueError as ve:
+        scan.status = "failed"
+        db.commit()
+        raise HTTPException(status_code=400, detail=str(ve))
 
-    return {
-        "message": f"Image scan completed for '{file.filename}'",
-        "source_id": str(new_source.id),
-        "exif_summary": {
-            "gps": exif_result.get("gps"),
-            "camera_make": exif_result.get("camera_make"),
-            "camera_model": exif_result.get("camera_model"),
-            "datetime_original": exif_result.get("datetime_original"),
-        },
-        "entities_found": len(created_entities),
-        "exposures_found": len(created_exposures),
-        "exposures": [
-            {"title": exp.title, "severity": exp.severity, "risk_score": exp.risk_score}
-            for exp in created_exposures
-        ]
-    }
+    except Exception as e:
+        scan.status = "failed"
+        db.commit()
+        print(f"[IMAGE SCAN ERROR] scan_id={scan_id}: {e}")
+        raise HTTPException(status_code=500, detail="Image scan failed due to an unexpected error")
 
 @router.get("/{scan_id}/locations")
 async def get_scan_locations(scan_id: str, db: Session = Depends(get_db)):
