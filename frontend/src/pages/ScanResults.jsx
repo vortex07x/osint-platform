@@ -4,6 +4,7 @@ import axios from 'axios'
 import ExposureGraph from '../components/ExposureGraph'
 import LocationMap from '../components/LocationMap'
 import ExpandablePanel from '../components/ExpandablePanel'
+import { useRef } from 'react'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -11,6 +12,7 @@ function ScanResults() {
   const { scanId } = useParams()
   const navigate = useNavigate()
   const [report, setReport] = useState(null)
+  const statusRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [toggling, setToggling] = useState(false)
@@ -19,6 +21,7 @@ function ScanResults() {
     try {
       const res = await axios.get(`${API_URL}/scans/${scanId}/full-report`)
       setReport(res.data)
+      statusRef.current = res.data.status
       setError(null)
     } catch (err) {
       setError('Scan not found or failed to load.')
@@ -45,12 +48,12 @@ function ScanResults() {
   useEffect(() => {
     fetchReport()
     const interval = setInterval(() => {
-      if (report?.status !== 'completed' && report?.status !== 'failed') {
+      if (statusRef.current !== 'completed' && statusRef.current !== 'failed') {
         fetchReport()
       }
     }, 3000)
     return () => clearInterval(interval)
-  }, [scanId, report?.status])
+  }, [scanId])
 
   const severityColor = (severity) => {
     switch (severity) {
