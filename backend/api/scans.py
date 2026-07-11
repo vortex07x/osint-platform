@@ -15,7 +15,7 @@ from models.entities import Entity
 from ai_engine.risk.risk_engine import analyze_entities
 # from models.exposures import Exposure
 from scrapers.social.username_checker import check_username_across_platforms
-from tasks.scan_tasks import run_github_scan_task, check_monitored_scans
+from tasks.scan_tasks import run_github_scan_task, run_username_check_task, check_monitored_scans
 from schemas.scans import MonitoringUpdate
 from db.graph_sync import get_scan_graph
 from fastapi import UploadFile, File
@@ -242,6 +242,24 @@ def scan_github_async(scan_id: str, username: str, background_tasks: BackgroundT
 
     return {
         "message": "Scan queued for background processing",
+        "scan_id": scan_id
+    }
+
+@router.post("/{scan_id}/scan-username-full-async/{username}")
+def scan_username_full_async(scan_id: str, username: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    scan.status = "queued"
+    scan.pending_tasks = 2
+    db.commit()
+
+    background_tasks.add_task(run_github_scan_task, scan_id, username)
+    background_tasks.add_task(run_username_check_task, scan_id, username)
+
+    return {
+        "message": "Combined GitHub + cross-platform scan queued",
         "scan_id": scan_id
     }
 

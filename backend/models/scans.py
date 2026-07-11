@@ -19,3 +19,4 @@ class Scan(Base):
     is_monitored = Column(Boolean, default=False)
     scan_interval_hours = Column(Integer, default=24)
     last_scanned_at = Column(TIMESTAMP, nullable=True)
+    pending_tasks = Column(Integer, default=0)

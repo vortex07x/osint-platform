@@ -69,7 +69,7 @@ function Dashboard() {
       })
 
       if (scanType === 'username') {
-        await axios.post(`${API_URL}/scans/${res.data.id}/scan-github-async/${targetIdentifier}`)
+        await axios.post(`${API_URL}/scans/${res.data.id}/scan-username-full-async/${targetIdentifier}`)
       }
 
       setTargetIdentifier('')
