@@ -8,6 +8,7 @@ import { useRef } from 'react'
 import { PlatformIcon, getPlatformLabel } from '../utils/platformIcons'
 import { getPlatformSettingsUrl } from '../utils/platformSettings'
 import ExposureModal from '../components/ExposureModal'
+import NeonGridCursor from '../components/NeonGridCursor'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -98,183 +99,186 @@ function ScanResults() {
   return (
     <div className="page">
       <div className="dotted-grid" />
+      <NeonGridCursor />
 
-      <button className="back-link" onClick={() => navigate('/dashboard')}>← BACK TO DASHBOARD</button>
+      <div className="page-content">
+        <button className="back-link" onClick={() => navigate('/dashboard')}>← BACK TO DASHBOARD</button>
 
-      <header className="dashboard-header">
-        <div className="header-top-row">
-          <div>
-            <h1 className="brand-title">{report.target_identifier}</h1>
-            <p className="brand-subtitle">
-              SCAN TYPE: {report.scan_type.toUpperCase()} · STATUS:{' '}
-              <span style={{ color: report.status === 'completed' ? '#4ADE80' : '#FF4D2D' }}>
-                {report.status.toUpperCase()}
-              </span>
+        <header className="dashboard-header">
+          <div className="header-top-row">
+            <div>
+              <h1 className="brand-title">{report.target_identifier}</h1>
+              <p className="brand-subtitle">
+                SCAN TYPE: {report.scan_type.toUpperCase()} · STATUS:{' '}
+                <span style={{ color: report.status === 'completed' ? '#4ADE80' : '#FF4D2D' }}>
+                  {report.status.toUpperCase()}
+                </span>
+              </p>
+            </div>
+
+            {report.scan_type === 'username' && (
+              <button
+                className={`monitor-toggle ${report.is_monitored ? 'active' : ''}`}
+                onClick={handleToggleMonitoring}
+                disabled={toggling}
+              >
+                <span className="monitor-dot" />
+                {report.is_monitored ? 'MONITORING ACTIVE' : 'ENABLE MONITORING'}
+              </button>
+            )}
+          </div>
+          {report.is_monitored && (
+            <p className="monitor-info">
+              AUTO-RESCANNING EVERY {report.scan_interval_hours}H · LAST CHECKED:{' '}
+              {report.last_scanned_at ? new Date(report.last_scanned_at).toLocaleString() : 'PENDING FIRST CHECK'}
             </p>
+          )}
+        </header>
+
+        {/* Risk Overview */}
+        <div className="risk-overview">
+          <div className="risk-stat">
+            <span className="risk-stat-value">{report.exposures.length}</span>
+            <span className="risk-stat-label">EXPOSURES</span>
+          </div>
+          <div className="risk-stat">
+            <span className="risk-stat-value">{avgRisk}</span>
+            <span className="risk-stat-label">AVG RISK SCORE</span>
+          </div>
+          <div className="risk-stat">
+            <span className="risk-stat-value">{report.entities.length}</span>
+            <span className="risk-stat-label">ENTITIES FOUND</span>
+          </div>
+          <div className="risk-stat">
+            <span className="risk-stat-value">{report.sources.length}</span>
+            <span className="risk-stat-label">SOURCES</span>
+          </div>
+        </div>
+
+        <div className="severity-pills">
+          {['critical', 'high', 'medium', 'low'].map((sev) =>
+            severityCounts[sev] ? (
+              <span key={sev} className="pill" style={{ borderColor: severityColor(sev), color: severityColor(sev) }}>
+                {sev.toUpperCase()}: {severityCounts[sev]}
+              </span>
+            ) : null
+          )}
+        </div>
+
+        <div className="results-grid">
+          {/* Exposures */}
+          <div className="panel">
+            <h2 className="section-label">// EXPOSURES</h2>
+            {report.exposures.length === 0 ? (
+              <p className="empty-state-small">No exposures found yet.</p>
+            ) : (
+              [...report.exposures]
+                .sort((a, b) => b.risk_score - a.risk_score)
+                .map((exp, i) => {
+                  const platforms = getPlatformsForExposure(exp)
+                  return (
+                    <div
+                      key={exp.id}
+                      className="exposure-card"
+                      style={{
+                        borderLeftColor: severityColor(exp.severity),
+                        animationDelay: `${i * 0.08}s`,
+                        '--exp-color': severityColor(exp.severity),
+                        '--exp-delay': `${i * 0.08}s`
+                      }}
+                      onClick={() => setSelectedExposure({ exposure: exp, platforms })}
+                    >
+                      <div className="exposure-header">
+                        <span className="exposure-title">{exp.title}</span>
+                        <span className="risk-score-badge">{exp.risk_score}</span>
+                      </div>
+                      <p className="exposure-desc">{exp.description}</p>
+                      {exp.recommendations && (
+                        <p className="exposure-rec">→ {exp.recommendations}</p>
+                      )}
+                      {platforms.length > 0 && (
+                        <div className="cleanup-links">
+                          {platforms.map((platform) => {
+                            const url = getPlatformSettingsUrl(platform)
+                            if (!url) return null
+                            return (
+                              <a
+                                key={platform}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="cleanup-link"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <PlatformIcon platform={platform} size={13} />
+                                FIX ON {getPlatformLabel(platform)}
+                              </a>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+            )}
           </div>
 
-          {report.scan_type === 'username' && (
-            <button
-              className={`monitor-toggle ${report.is_monitored ? 'active' : ''}`}
-              onClick={handleToggleMonitoring}
-              disabled={toggling}
-            >
-              <span className="monitor-dot" />
-              {report.is_monitored ? 'MONITORING ACTIVE' : 'ENABLE MONITORING'}
-            </button>
-          )}
+          {/* Entities */}
+          <div className="panel">
+            <h2 className="section-label">// ENTITIES</h2>
+            {report.entities.length === 0 ? (
+              <p className="empty-state-small">No entities extracted yet.</p>
+            ) : (
+              report.entities.map((ent) => (
+                <div key={ent.id} className="entity-row">
+                  <span className="entity-type">{ent.entity_type.replace('_', ' ').toUpperCase()}</span>
+                  <span className="entity-value">{ent.value}</span>
+                  <span className="entity-confidence">{Math.round(ent.confidence_score * 100)}%</span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-        {report.is_monitored && (
-          <p className="monitor-info">
-            AUTO-RESCANNING EVERY {report.scan_interval_hours}H · LAST CHECKED:{' '}
-            {report.last_scanned_at ? new Date(report.last_scanned_at).toLocaleString() : 'PENDING FIRST CHECK'}
-          </p>
+
+        {/* Sources */}
+        <div className="panel" style={{ marginTop: '24px' }}>
+          <h2 className="section-label">// SOURCES</h2>
+          {report.sources.map((src) => (
+            <div key={src.id} className="source-row">
+              <span className="source-platform-badge">
+                <PlatformIcon platform={src.platform} />
+                <span className="source-platform">{getPlatformLabel(src.platform)}</span>
+              </span>
+              <a href={src.url} target="_blank" rel="noreferrer" className="source-url">{src.url}</a>
+              <span className="source-date">{new Date(src.collected_at).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Exposure Graph */}
+        <div className="panel" style={{ marginTop: '24px' }}>
+          <h2 className="section-label">// EXPOSURE GRAPH</h2>
+          <ExpandablePanel title="Exposure Graph">
+            <ExposureGraph scanId={scanId} />
+          </ExpandablePanel>
+        </div>
+
+        {/* Location Map */}
+        <div className="panel" style={{ marginTop: '24px' }}>
+          <h2 className="section-label">// GEOLOCATION MAP</h2>
+          <ExpandablePanel title="Geolocation Map">
+            <LocationMap scanId={scanId} />
+          </ExpandablePanel>
+        </div>
+
+        {selectedExposure && (
+          <ExposureModal
+            exposure={selectedExposure.exposure}
+            platforms={selectedExposure.platforms}
+            onClose={() => setSelectedExposure(null)}
+          />
         )}
-      </header>
-
-      {/* Risk Overview */}
-      <div className="risk-overview">
-        <div className="risk-stat">
-          <span className="risk-stat-value">{report.exposures.length}</span>
-          <span className="risk-stat-label">EXPOSURES</span>
-        </div>
-        <div className="risk-stat">
-          <span className="risk-stat-value">{avgRisk}</span>
-          <span className="risk-stat-label">AVG RISK SCORE</span>
-        </div>
-        <div className="risk-stat">
-          <span className="risk-stat-value">{report.entities.length}</span>
-          <span className="risk-stat-label">ENTITIES FOUND</span>
-        </div>
-        <div className="risk-stat">
-          <span className="risk-stat-value">{report.sources.length}</span>
-          <span className="risk-stat-label">SOURCES</span>
-        </div>
       </div>
-
-      <div className="severity-pills">
-        {['critical', 'high', 'medium', 'low'].map((sev) =>
-          severityCounts[sev] ? (
-            <span key={sev} className="pill" style={{ borderColor: severityColor(sev), color: severityColor(sev) }}>
-              {sev.toUpperCase()}: {severityCounts[sev]}
-            </span>
-          ) : null
-        )}
-      </div>
-
-      <div className="results-grid">
-        {/* Exposures */}
-        <div className="panel">
-          <h2 className="section-label">// EXPOSURES</h2>
-          {report.exposures.length === 0 ? (
-            <p className="empty-state-small">No exposures found yet.</p>
-          ) : (
-            [...report.exposures]
-              .sort((a, b) => b.risk_score - a.risk_score)
-              .map((exp, i) => {
-                const platforms = getPlatformsForExposure(exp)
-                return (
-                  <div
-                    key={exp.id}
-                    className="exposure-card"
-                    style={{
-                      borderLeftColor: severityColor(exp.severity),
-                      animationDelay: `${i * 0.08}s`,
-                      '--exp-color': severityColor(exp.severity),
-                      '--exp-delay': `${i * 0.08}s`
-                    }}
-                    onClick={() => setSelectedExposure({ exposure: exp, platforms })}
-                  >
-                    <div className="exposure-header">
-                      <span className="exposure-title">{exp.title}</span>
-                      <span className="risk-score-badge">{exp.risk_score}</span>
-                    </div>
-                    <p className="exposure-desc">{exp.description}</p>
-                    {exp.recommendations && (
-                      <p className="exposure-rec">→ {exp.recommendations}</p>
-                    )}
-                    {platforms.length > 0 && (
-                      <div className="cleanup-links">
-                        {platforms.map((platform) => {
-                          const url = getPlatformSettingsUrl(platform)
-                          if (!url) return null
-                          return (
-                            <a
-                              key={platform}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="cleanup-link"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <PlatformIcon platform={platform} size={13} />
-                              FIX ON {getPlatformLabel(platform)}
-                            </a>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
-          )}
-        </div>
-
-        {/* Entities */}
-        <div className="panel">
-          <h2 className="section-label">// ENTITIES</h2>
-          {report.entities.length === 0 ? (
-            <p className="empty-state-small">No entities extracted yet.</p>
-          ) : (
-            report.entities.map((ent) => (
-              <div key={ent.id} className="entity-row">
-                <span className="entity-type">{ent.entity_type.replace('_', ' ').toUpperCase()}</span>
-                <span className="entity-value">{ent.value}</span>
-                <span className="entity-confidence">{Math.round(ent.confidence_score * 100)}%</span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Sources */}
-      <div className="panel" style={{ marginTop: '24px' }}>
-        <h2 className="section-label">// SOURCES</h2>
-        {report.sources.map((src) => (
-  <div key={src.id} className="source-row">
-    <span className="source-platform-badge">
-      <PlatformIcon platform={src.platform} />
-      <span className="source-platform">{getPlatformLabel(src.platform)}</span>
-    </span>
-    <a href={src.url} target="_blank" rel="noreferrer" className="source-url">{src.url}</a>
-    <span className="source-date">{new Date(src.collected_at).toLocaleString()}</span>
-  </div>
-))}
-      </div>
-
-      {/* Exposure Graph */}
-      <div className="panel" style={{ marginTop: '24px' }}>
-        <h2 className="section-label">// EXPOSURE GRAPH</h2>
-        <ExpandablePanel title="Exposure Graph">
-          <ExposureGraph scanId={scanId} />
-        </ExpandablePanel>
-      </div>
-
-      {/* Location Map */}
-      <div className="panel" style={{ marginTop: '24px' }}>
-        <h2 className="section-label">// GEOLOCATION MAP</h2>
-        <ExpandablePanel title="Geolocation Map">
-          <LocationMap scanId={scanId} />
-        </ExpandablePanel>
-      </div>
-
-      {selectedExposure && (
-        <ExposureModal
-          exposure={selectedExposure.exposure}
-          platforms={selectedExposure.platforms}
-          onClose={() => setSelectedExposure(null)}
-        />
-      )}
     </div>
   )
 }

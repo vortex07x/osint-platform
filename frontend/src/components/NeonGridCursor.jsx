@@ -1,17 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
-
-const ENABLED_PATHS = ['/dashboard', '/scan']
 
 function NeonGridCursor() {
   const gridRef = useRef(null)
-  const location = useLocation()
-
-  const isEnabled = ENABLED_PATHS.some((path) => location.pathname.startsWith(path))
 
   useEffect(() => {
-    if (!isEnabled) return
-
     const grid = gridRef.current
     if (!grid) return
 
@@ -27,8 +19,9 @@ function NeonGridCursor() {
     }
 
     const animate = () => {
-      currentX += (targetX - currentX) * 0.08
-      currentY += (targetY - currentY) * 0.08
+      // lower = more delay/trail. was 0.08, now 0.05 for a laggier feel
+      currentX += (targetX - currentX) * 0.05
+      currentY += (targetY - currentY) * 0.05
       grid.style.setProperty('--mouse-x', `${currentX}px`)
       grid.style.setProperty('--mouse-y', `${currentY}px`)
       rafId = requestAnimationFrame(animate)
@@ -41,9 +34,7 @@ function NeonGridCursor() {
       window.removeEventListener('mousemove', handleMove)
       cancelAnimationFrame(rafId)
     }
-  }, [isEnabled])
-
-  if (!isEnabled) return null
+  }, [])
 
   return <div ref={gridRef} className="neon-grid-overlay" />
 }

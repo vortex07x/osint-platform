@@ -59,6 +59,11 @@ body {
   margin-bottom: 40px;
 }
 
+.page-content {
+  position: relative;
+  z-index: 1;
+}
+
 .page-tag {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
