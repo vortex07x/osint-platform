@@ -103,6 +103,13 @@ ENTITY_RISK_PROFILES = {
         "title": "Password potentially exposed in a data breach",
         "recommendation": "Change this password immediately everywhere it was reused, and consider using a password manager to generate unique passwords per site."
     },
+    "additional_breaches": {
+        "category": "security",
+        "severity": "high",
+        "base_score": 50,
+        "title": "Multiple additional data breaches found",
+        "recommendation": "Review your full breach history and change reused passwords across all affected accounts."
+    },
 }
 
 DEFAULT_RISK_PROFILE = {

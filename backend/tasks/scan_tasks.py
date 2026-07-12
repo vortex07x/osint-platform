@@ -278,10 +278,12 @@ def run_breach_check_task(scan_id: str, email: str):
 
         breach_result = asyncio.run(check_email_breaches(email))
 
+        extracted, shown_breaches = extract_entities_from_breach_result(breach_result)
+
         created_sources = []
         created_entities = []
 
-        for b in breach_result["breaches"]:
+        for b in shown_breaches:
             new_source = Source(
                 scan_id=scan_id,
                 platform="breach",
@@ -294,11 +296,6 @@ def run_breach_check_task(scan_id: str, email: str):
             db.refresh(new_source)
             created_sources.append(new_source)
 
-        db.commit()
-
-        extracted = extract_entities_from_breach_result(breach_result)
-        # Link data_breach entities to their matching source; password
-        # entities span multiple breaches so get no single source_id.
         source_by_breach_name = {
             s.raw_data_json.get("breach"): s.id for s in created_sources
         }
@@ -314,7 +311,8 @@ def run_breach_check_task(scan_id: str, email: str):
                 source_id=source_id,
                 entity_type=item["entity_type"],
                 value=item["value"],
-                confidence_score=item["confidence_score"]
+                confidence_score=item["confidence_score"],
+                metadata_json=item.get("metadata_json")
             )
             db.add(new_entity)
             created_entities.append(new_entity)
