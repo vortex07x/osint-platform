@@ -7,6 +7,7 @@ import ExpandablePanel from '../components/ExpandablePanel'
 import { useRef } from 'react'
 import { PlatformIcon, getPlatformLabel } from '../utils/platformIcons'
 import { getPlatformSettingsUrl } from '../utils/platformSettings'
+import ExposureModal from '../components/ExposureModal'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -18,6 +19,7 @@ function ScanResults() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [toggling, setToggling] = useState(false)
+  const [selectedExposure, setSelectedExposure] = useState(null)
 
   const fetchReport = async () => {
     try {
@@ -169,10 +171,18 @@ function ScanResults() {
           ) : (
             [...report.exposures]
               .sort((a, b) => b.risk_score - a.risk_score)
-              .map((exp) => {
+              .map((exp, i) => {
                 const platforms = getPlatformsForExposure(exp)
                 return (
-                  <div key={exp.id} className="exposure-card" style={{ borderLeftColor: severityColor(exp.severity) }}>
+                  <div
+                    key={exp.id}
+                    className="exposure-card"
+                    style={{
+                      borderLeftColor: severityColor(exp.severity),
+                      animationDelay: `${i * 0.08}s`
+                    }}
+                    onClick={() => setSelectedExposure({ exposure: exp, platforms })}
+                  >
                     <div className="exposure-header">
                       <span className="exposure-title">{exp.title}</span>
                       <span className="risk-score-badge">{exp.risk_score}</span>
@@ -182,19 +192,26 @@ function ScanResults() {
                       <p className="exposure-rec">→ {exp.recommendations}</p>
                     )}
                     {platforms.length > 0 && (
-    <div className="cleanup-links">
-    {platforms.map((platform) => {
-      const url = getPlatformSettingsUrl(platform)
-      if (!url) return null
-      return (
-        <a key={platform} href={url} target="_blank" rel="noreferrer" className="cleanup-link">
-          <PlatformIcon platform={platform} size={13} />
-          FIX ON {getPlatformLabel(platform)}
-        </a>
-      )
-    })}
-  </div>
-)}
+                      <div className="cleanup-links">
+                        {platforms.map((platform) => {
+                          const url = getPlatformSettingsUrl(platform)
+                          if (!url) return null
+                          return (
+                            <a
+                              key={platform}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="cleanup-link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <PlatformIcon platform={platform} size={13} />
+                              FIX ON {getPlatformLabel(platform)}
+                            </a>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )
               })
@@ -248,6 +265,14 @@ function ScanResults() {
           <LocationMap scanId={scanId} />
         </ExpandablePanel>
       </div>
+
+      {selectedExposure && (
+        <ExposureModal
+          exposure={selectedExposure.exposure}
+          platforms={selectedExposure.platforms}
+          onClose={() => setSelectedExposure(null)}
+        />
+      )}
     </div>
   )
 }

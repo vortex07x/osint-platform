@@ -15,7 +15,7 @@ BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "OSINT Platform")
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
-print(f"[DEBUG] Brevo key loaded: {BREVO_API_KEY[:15]}..." if BREVO_API_KEY else "[DEBUG] Brevo key is None!")
+# print(f"[DEBUG] Brevo key loaded: {BREVO_API_KEY[:15]}..." if BREVO_API_KEY else "[DEBUG] Brevo key is None!")
 
 async def send_otp_email(to_email: str, otp: str):
     """

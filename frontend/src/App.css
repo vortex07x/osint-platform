@@ -1841,3 +1841,114 @@ html, body {
     padding: 12px 16px;
   }
 }
+
+/* ===== EXPOSURE CARD ENTRANCE ANIMATION ===== */
+@keyframes exposure-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.exposure-card {
+  cursor: pointer;
+  opacity: 0;
+  animation: exposure-fade-in 0.5s ease-out forwards;
+  transition: border-color 0.2s, transform 0.15s, background 0.2s;
+}
+
+.exposure-card:hover {
+  background: #14161a;
+  transform: translateX(3px);
+}
+
+/* ===== EXPOSURE DETAIL MODAL (reuses expand-modal-* look) ===== */
+.exposure-modal-box {
+  width: 100%;
+  max-width: 720px;
+  max-height: 85vh;
+  background: #16181D;
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.exposure-modal-body {
+  padding: 28px;
+  overflow-y: auto;
+}
+
+.exposure-modal-severity-bar {
+  height: 4px;
+  width: 100%;
+}
+
+.exposure-modal-title {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: #E5E7EB;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+.exposure-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.exposure-modal-severity-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+  text-transform: uppercase;
+}
+
+.exposure-modal-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #8FAEC2;
+}
+
+.exposure-modal-score strong {
+  color: #E5E7EB;
+  font-size: 16px;
+}
+
+.exposure-modal-section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #00D9FF;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  margin-top: 22px;
+}
+
+.exposure-modal-desc {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #C8E8F5;
+  line-height: 1.7;
+}
+
+.exposure-modal-rec {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #9CA3AF;
+  line-height: 1.7;
+  font-style: italic;
+}
