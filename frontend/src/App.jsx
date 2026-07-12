@@ -8,6 +8,7 @@ import CustomCursor from './components/CustomCursor'
 import Navbar from './components/Navbar'
 import './App.css'
 import About from './pages/About'
+import NeonGridCursor from './components/NeonGridCursor'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -40,6 +41,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <CustomCursor />
+        <NeonGridCursor />
         <Navbar />
         <AppRoutes />
       </AuthProvider>

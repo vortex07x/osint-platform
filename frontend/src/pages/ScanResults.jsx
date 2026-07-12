@@ -99,7 +99,7 @@ function ScanResults() {
     <div className="page">
       <div className="dotted-grid" />
 
-      <button className="back-link" onClick={() => navigate('/')}>← BACK TO DASHBOARD</button>
+      <button className="back-link" onClick={() => navigate('/dashboard')}>← BACK TO DASHBOARD</button>
 
       <header className="dashboard-header">
         <div className="header-top-row">
@@ -179,7 +179,9 @@ function ScanResults() {
                     className="exposure-card"
                     style={{
                       borderLeftColor: severityColor(exp.severity),
-                      animationDelay: `${i * 0.08}s`
+                      animationDelay: `${i * 0.08}s`,
+                      '--exp-color': severityColor(exp.severity),
+                      '--exp-delay': `${i * 0.08}s`
                     }}
                     onClick={() => setSelectedExposure({ exposure: exp, platforms })}
                   >

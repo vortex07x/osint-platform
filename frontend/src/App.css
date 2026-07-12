@@ -1857,10 +1857,26 @@ html, body {
 }
 
 .exposure-card {
-  cursor: pointer;
-  opacity: 0;
-  animation: exposure-fade-in 0.5s ease-out forwards;
-  transition: border-color 0.2s, transform 0.15s, background 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.exposure-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--exp-color, #00D9FF);
+  box-shadow: 0 0 8px var(--exp-color, #00D9FF);
+  animation: exposure-bar-fill 0.7s ease-out forwards;
+  animation-delay: var(--exp-delay, 0s);
+}
+
+@keyframes exposure-bar-fill {
+  from { width: 0%; }
+  to { width: 100%; }
 }
 
 .exposure-card:hover {
@@ -1951,4 +1967,26 @@ html, body {
   color: #9CA3AF;
   line-height: 1.7;
   font-style: italic;
+}
+
+.neon-grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 217, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 217, 255, 0.5) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(
+    circle 180px at var(--mouse-x, -500px) var(--mouse-y, -500px),
+    black 0%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    circle 180px at var(--mouse-x, -500px) var(--mouse-y, -500px),
+    black 0%,
+    transparent 100%
+  );
+  transition: mask-position 0.05s linear;
 }
