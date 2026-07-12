@@ -89,6 +89,20 @@ ENTITY_RISK_PROFILES = {
         "title": "Photo editing software identified",
         "recommendation": "Minimal risk on its own."
     },
+    "data_breach": {
+        "category": "security",
+        "severity": "high",
+        "base_score": 55,
+        "title": "Email found in known data breach",
+        "recommendation": "Change your password on this platform and anywhere else you reused it, and enable two-factor authentication if available."
+    },
+    "exposed_password": {
+        "category": "security",
+        "severity": "critical",
+        "base_score": 80,
+        "title": "Password potentially exposed in a data breach",
+        "recommendation": "Change this password immediately everywhere it was reused, and consider using a password manager to generate unique passwords per site."
+    },
 }
 
 DEFAULT_RISK_PROFILE = {

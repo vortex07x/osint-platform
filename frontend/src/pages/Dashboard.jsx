@@ -70,7 +70,9 @@ function Dashboard() {
 
       if (scanType === 'username') {
         await axios.post(`${API_URL}/scans/${res.data.id}/scan-username-full-async/${targetIdentifier}`)
-      }
+      }else if (scanType === 'email') {
+  await axios.post(`${API_URL}/scans/${res.data.id}/scan-email-async/${encodeURIComponent(targetIdentifier)}`)
+}
 
       setTargetIdentifier('')
       fetchScans()

@@ -9,6 +9,7 @@ from scrapers.social.username_checker import check_username_across_platforms
 from ai_engine.risk.risk_engine import analyze_entities
 from datetime import datetime, timedelta, timezone
 from db.graph_sync import sync_scan_to_graph
+from ai_engine.breach.breach_checker import check_email_breaches, extract_entities_from_breach_result
 
 
 def _finalize_task(db, scan_id: str):
@@ -247,6 +248,129 @@ def run_username_check_task(scan_id: str, username: str):
             "status": "completed",
             "platforms_found_verified": len(found_platforms),
             "platforms_found_unverified": len(unverified_platforms),
+            "entities_found": len(created_entities),
+            "exposures_found": len(created_exposure_objs)
+        }
+
+    except Exception as e:
+        if scan:
+            _finalize_task(db, scan_id)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+def run_breach_check_task(scan_id: str, email: str):
+    """
+    Checks an email against known data breaches via XposedOrNot.
+    Single-task scan (no pending_tasks coordination needed, unlike
+    the combined username scan).
+    """
+    db = SessionLocal()
+    scan = None
+    try:
+        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        if not scan:
+            return {"error": "Scan not found"}
+
+        if scan.status == "queued":
+            scan.status = "running"
+            db.commit()
+
+        breach_result = asyncio.run(check_email_breaches(email))
+
+        created_sources = []
+        created_entities = []
+
+        for b in breach_result["breaches"]:
+            new_source = Source(
+                scan_id=scan_id,
+                platform="breach",
+                url=f"https://{b['domain']}" if b.get("domain") else None,
+                data_type="data_breach",
+                raw_data_json=b
+            )
+            db.add(new_source)
+            db.commit()
+            db.refresh(new_source)
+            created_sources.append(new_source)
+
+        db.commit()
+
+        extracted = extract_entities_from_breach_result(breach_result)
+        # Link data_breach entities to their matching source; password
+        # entities span multiple breaches so get no single source_id.
+        source_by_breach_name = {
+            s.raw_data_json.get("breach"): s.id for s in created_sources
+        }
+
+        for item in extracted:
+            source_id = None
+            if item["entity_type"] == "data_breach":
+                breach_name = item["value"].split(" (")[0]
+                source_id = source_by_breach_name.get(breach_name)
+
+            new_entity = Entity(
+                scan_id=scan_id,
+                source_id=source_id,
+                entity_type=item["entity_type"],
+                value=item["value"],
+                confidence_score=item["confidence_score"]
+            )
+            db.add(new_entity)
+            created_entities.append(new_entity)
+
+        db.commit()
+        for e in created_entities:
+            db.refresh(e)
+
+        entity_dicts = [
+            {"id": e.id, "entity_type": e.entity_type, "value": e.value}
+            for e in created_entities
+        ]
+        exposure_findings = analyze_entities(entity_dicts)
+
+        created_exposure_objs = []
+        for finding in exposure_findings:
+            new_exposure = Exposure(
+                scan_id=scan_id,
+                category=finding["category"],
+                severity=finding["severity"],
+                title=finding["title"],
+                description=finding["description"],
+                risk_score=finding["risk_score"],
+                affected_entities=finding["affected_entities"],
+                recommendations=finding["recommendations"]
+            )
+            db.add(new_exposure)
+            created_exposure_objs.append(new_exposure)
+
+        db.commit()
+        for ex in created_exposure_objs:
+            db.refresh(ex)
+
+        if created_sources:
+            try:
+                sync_scan_to_graph(
+                    scan_id=str(scan.id),
+                    target_identifier=scan.target_identifier,
+                    sources=[{"id": s.id, "platform": s.platform, "url": s.url} for s in created_sources],
+                    entities=[
+                        {"id": e.id, "entity_type": e.entity_type, "value": e.value, "source_id": e.source_id}
+                        for e in created_entities
+                    ],
+                    exposures=[
+                        {"id": ex.id, "title": ex.title, "severity": ex.severity, "risk_score": ex.risk_score, "affected_entities": ex.affected_entities}
+                        for ex in created_exposure_objs
+                    ]
+                )
+            except Exception as graph_error:
+                print(f"[GRAPH SYNC WARNING] Failed to sync to Neo4j: {graph_error}")
+
+        _finalize_task(db, scan_id)
+
+        return {
+            "status": "completed",
+            "breaches_found": len(breach_result["breaches"]),
             "entities_found": len(created_entities),
             "exposures_found": len(created_exposure_objs)
         }

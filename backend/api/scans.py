@@ -24,6 +24,7 @@ from db.graph_sync import sync_scan_to_graph
 from auth.dependencies import get_current_user
 from models.users import User
 from ai_engine.geo.geocoder import geocode_location
+from tasks.scan_tasks import run_github_scan_task, run_username_check_task, run_breach_check_task, check_monitored_scans
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -455,3 +456,19 @@ def trigger_monitored_scans(x_cron_secret: str = Header(...)):
 
     result = check_monitored_scans()
     return result
+
+@router.post("/{scan_id}/scan-email-async/{email}")
+def scan_email_async(scan_id: str, email: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    scan.status = "queued"
+    db.commit()
+
+    background_tasks.add_task(run_breach_check_task, scan_id, email)
+
+    return {
+        "message": "Breach check queued for background processing",
+        "scan_id": scan_id
+    }

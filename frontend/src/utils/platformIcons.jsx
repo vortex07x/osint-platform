@@ -3,6 +3,7 @@ import {
   SiPinterest, SiTwitch, SiSpotify, SiDeviantart, SiMedium
 } from 'react-icons/si'
 import { FiImage, FiGlobe } from 'react-icons/fi'
+import { FiImage, FiGlobe, FiAlertTriangle } from 'react-icons/fi'
 
 const PLATFORM_ICON_MAP = {
   github: { Icon: SiGithub, color: '#FFFFFF' },
@@ -18,6 +19,7 @@ const PLATFORM_ICON_MAP = {
   deviantart: { Icon: SiDeviantart, color: '#05CC47' },
   medium: { Icon: SiMedium, color: '#FFFFFF' },
   image_upload: { Icon: FiImage, color: '#00D9FF' },
+  breach: { Icon: FiAlertTriangle, color: '#EF4444' },
 }
 
 export function PlatformIcon({ platform, size = 16 }) {
@@ -27,6 +29,6 @@ export function PlatformIcon({ platform, size = 16 }) {
 }
 
 export function getPlatformLabel(platform) {
-  const overrides = { image_upload: 'IMAGE UPLOAD' }
+const overrides = { image_upload: 'IMAGE UPLOAD', breach: 'DATA BREACH' }
   return overrides[platform] || platform.toUpperCase()
 }
