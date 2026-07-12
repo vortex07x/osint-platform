@@ -6,6 +6,7 @@ import LocationMap from '../components/LocationMap'
 import ExpandablePanel from '../components/ExpandablePanel'
 import { useRef } from 'react'
 import { PlatformIcon, getPlatformLabel } from '../utils/platformIcons'
+import { getPlatformSettingsUrl } from '../utils/platformSettings'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -78,6 +79,19 @@ function ScanResults() {
     acc[e.severity] = (acc[e.severity] || 0) + 1
     return acc
   }, {})
+
+  const getPlatformsForExposure = (exposure) => {
+  const entityIds = new Set(exposure.affected_entities)
+  const sourceIds = new Set(
+    report.entities
+      .filter((e) => entityIds.has(e.id) && e.source_id)
+      .map((e) => e.source_id)
+  )
+  const platforms = new Set(
+    report.sources.filter((s) => sourceIds.has(s.id)).map((s) => s.platform)
+  )
+  return [...platforms]
+}
 
   return (
     <div className="page">
@@ -155,18 +169,35 @@ function ScanResults() {
           ) : (
             [...report.exposures]
               .sort((a, b) => b.risk_score - a.risk_score)
-              .map((exp) => (
-                <div key={exp.id} className="exposure-card" style={{ borderLeftColor: severityColor(exp.severity) }}>
-                  <div className="exposure-header">
-                    <span className="exposure-title">{exp.title}</span>
-                    <span className="risk-score-badge">{exp.risk_score}</span>
+              .map((exp) => {
+                const platforms = getPlatformsForExposure(exp)
+                return (
+                  <div key={exp.id} className="exposure-card" style={{ borderLeftColor: severityColor(exp.severity) }}>
+                    <div className="exposure-header">
+                      <span className="exposure-title">{exp.title}</span>
+                      <span className="risk-score-badge">{exp.risk_score}</span>
+                    </div>
+                    <p className="exposure-desc">{exp.description}</p>
+                    {exp.recommendations && (
+                      <p className="exposure-rec">→ {exp.recommendations}</p>
+                    )}
+                    {platforms.length > 0 && (
+    <div className="cleanup-links">
+    {platforms.map((platform) => {
+      const url = getPlatformSettingsUrl(platform)
+      if (!url) return null
+      return (
+        <a key={platform} href={url} target="_blank" rel="noreferrer" className="cleanup-link">
+          <PlatformIcon platform={platform} size={13} />
+          FIX ON {getPlatformLabel(platform)}
+        </a>
+      )
+    })}
+  </div>
+)}
                   </div>
-                  <p className="exposure-desc">{exp.description}</p>
-                  {exp.recommendations && (
-                    <p className="exposure-rec">→ {exp.recommendations}</p>
-                  )}
-                </div>
-              ))
+                )
+              })
           )}
         </div>
 
