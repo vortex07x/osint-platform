@@ -2,7 +2,6 @@ import {
   SiGithub, SiGitlab, SiInstagram, SiX, SiTiktok, SiReddit,
   SiPinterest, SiTwitch, SiSpotify, SiDeviantart, SiMedium
 } from 'react-icons/si'
-import { FiImage, FiGlobe } from 'react-icons/fi'
 import { FiImage, FiGlobe, FiAlertTriangle } from 'react-icons/fi'
 
 const PLATFORM_ICON_MAP = {
