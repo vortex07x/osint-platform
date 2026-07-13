@@ -13,7 +13,7 @@ const API_URL = import.meta.env.VITE_API_URL
 
 const ALL_PLATFORMS = [
   'github', 'gitlab', 'instagram', 'twitter', 'tiktok',
-  'reddit', 'pinterest', 'twitch', 'spotify', 'deviantart', 'medium'
+  'reddit', 'pinterest', 'twitch', 'spotify', 'deviantart', 'medium', 'whois_dns'
 ]
 
 function ScanResults() {
