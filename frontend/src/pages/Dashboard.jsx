@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import NeonGridCursor from '../components/NeonGridCursor'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -9,6 +10,7 @@ function Dashboard() {
   const [targetIdentifier, setTargetIdentifier] = useState('')
   const [scanType, setScanType] = useState('username')
   const [loading, setLoading] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const navigate = useNavigate()
   const [selectedFile, setSelectedFile] = useState(null)
 
@@ -70,9 +72,9 @@ function Dashboard() {
 
       if (scanType === 'username') {
         await axios.post(`${API_URL}/scans/${res.data.id}/scan-username-full-async/${targetIdentifier}`)
-      }else if (scanType === 'email') {
-  await axios.post(`${API_URL}/scans/${res.data.id}/scan-email-async/${encodeURIComponent(targetIdentifier)}`)
-}
+      } else if (scanType === 'email') {
+        await axios.post(`${API_URL}/scans/${res.data.id}/scan-email-async/${encodeURIComponent(targetIdentifier)}`)
+      }
 
       setTargetIdentifier('')
       fetchScans()
@@ -80,6 +82,21 @@ function Dashboard() {
       console.error('Error creating scan:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteScan = async (e, scanId) => {
+    e.stopPropagation()
+    if (!window.confirm('Delete this scan and all its data? This cannot be undone.')) return
+
+    setDeletingId(scanId)
+    try {
+      await axios.delete(`${API_URL}/scans/${scanId}`)
+      setScans((prev) => prev.filter((s) => s.id !== scanId))
+    } catch (error) {
+      console.error('Error deleting scan:', error)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -95,78 +112,99 @@ function Dashboard() {
   return (
     <div className="page">
       <div className="dotted-grid" />
+      <NeonGridCursor />
 
-      <header className="dashboard-header">
-        <p className="page-tag">// INVESTIGATION CONSOLE</p>
-        <h1 className="page-title">ACTIVE SCANS</h1>
-      </header>
+      <div className="page-content">
+        <header className="dashboard-header">
+          <p className="page-tag">// INVESTIGATION CONSOLE</p>
+          <h1 className="page-title">ACTIVE SCANS</h1>
+        </header>
 
-      <form onSubmit={handleCreateScan} className="scan-form">
-        {scanType === 'image' ? (
-          <label className="file-input-label">
-            {selectedFile ? selectedFile.name : 'CHOOSE IMAGE FILE...'}
+        <form onSubmit={handleCreateScan} className="scan-form">
+          {scanType === 'image' ? (
+            <label className="file-input-label">
+              {selectedFile ? selectedFile.name : 'CHOOSE IMAGE FILE...'}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setSelectedFile(e.target.files[0])}
+                style={{ display: 'none' }}
+              />
+            </label>
+          ) : (
             <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setSelectedFile(e.target.files[0])}
-              style={{ display: 'none' }}
+              type="text"
+              placeholder="ENTER TARGET (username, email...)"
+              value={targetIdentifier}
+              onChange={(e) => setTargetIdentifier(e.target.value)}
+              className="input-field"
             />
-          </label>
+          )}
+          <select
+            value={scanType}
+            onChange={(e) => setScanType(e.target.value)}
+            className="select-field"
+          >
+            <option value="username">USERNAME</option>
+            <option value="email">EMAIL</option>
+            <option value="domain">DOMAIN</option>
+            <option value="image">IMAGE</option>
+          </select>
+          <button type="submit" disabled={loading} className="btn-primary">
+            {loading ? (scanType === 'image' ? 'ANALYZING IMAGE...' : 'QUEUING...') : 'START SCAN'}
+          </button>
+        </form>
+
+        <h2 className="section-label">// INVESTIGATIONS</h2>
+
+        {scans.length === 0 ? (
+          <p className="empty-state">NO SCANS YET</p>
         ) : (
-          <input
-            type="text"
-            placeholder="ENTER TARGET (username, email...)"
-            value={targetIdentifier}
-            onChange={(e) => setTargetIdentifier(e.target.value)}
-            className="input-field"
-          />
+          <div className="scan-list">
+            {scans.map((scan) => (
+              <div
+                key={scan.id}
+                className="scan-card"
+                onClick={() => navigate(`/scan/${scan.id}`)}
+              >
+                <div className="scan-card-main">
+                  <span className="scan-target">{scan.target_identifier}</span>
+                  <span className="scan-type">{scan.scan_type}</span>
+                </div>
+                <div className="scan-card-meta">
+                  <span
+                    className="status-badge"
+                    style={{ borderColor: statusColor(scan.status), color: statusColor(scan.status) }}
+                  >
+                    {scan.status}
+                  </span>
+                  <span className="scan-date">
+                    {new Date(scan.created_at).toLocaleString()}
+                  </span>
+                  <button
+                    className="scan-delete-btn"
+                    onClick={(e) => handleDeleteScan(e, scan.id)}
+                    disabled={deletingId === scan.id}
+                    title="Delete scan"
+                  >
+                    {deletingId === scan.id ? (
+                      <span className="scan-delete-spinner" />
+                    ) : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
-        <select
-          value={scanType}
-          onChange={(e) => setScanType(e.target.value)}
-          className="select-field"
-        >
-          <option value="username">USERNAME</option>
-          <option value="email">EMAIL</option>
-          <option value="domain">DOMAIN</option>
-          <option value="image">IMAGE</option>
-        </select>
-        <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? (scanType === 'image' ? 'ANALYZING IMAGE...' : 'QUEUING...') : 'START SCAN'}
-        </button>
-      </form>
-
-      <h2 className="section-label">// INVESTIGATIONS</h2>
-
-      {scans.length === 0 ? (
-        <p className="empty-state">NO SCANS YET</p>
-      ) : (
-        <div className="scan-list">
-          {scans.map((scan) => (
-            <div
-              key={scan.id}
-              className="scan-card"
-              onClick={() => navigate(`/scan/${scan.id}`)}
-            >
-              <div className="scan-card-main">
-                <span className="scan-target">{scan.target_identifier}</span>
-                <span className="scan-type">{scan.scan_type}</span>
-              </div>
-              <div className="scan-card-meta">
-                <span
-                  className="status-badge"
-                  style={{ borderColor: statusColor(scan.status), color: statusColor(scan.status) }}
-                >
-                  {scan.status}
-                </span>
-                <span className="scan-date">
-                  {new Date(scan.created_at).toLocaleString()}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

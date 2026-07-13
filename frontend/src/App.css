@@ -2176,3 +2176,49 @@ html, body {
     padding: 12px;
   }
 }
+
+/* ===== SCAN DELETE BUTTON ===== */
+.scan-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #5A7A8C;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.scan-delete-btn:hover:not(:disabled) {
+  color: #FF4D4D;
+  border-color: rgba(255, 77, 77, 0.4);
+  background: rgba(255, 77, 77, 0.08);
+}
+
+.scan-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scan-delete-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 77, 77, 0.25);
+  border-top-color: #FF4D4D;
+  border-radius: 50%;
+  animation: scan-delete-spin 0.6s linear infinite;
+}
+
+@keyframes scan-delete-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .scan-card-meta {
+    flex-wrap: wrap;
+  }
+}
