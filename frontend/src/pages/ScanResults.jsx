@@ -215,7 +215,7 @@ function ScanResults() {
           </div>
         </div>
 
-        {/* Severity pills + filter toggle */}
+        {/* Severity pills + inline platform filter */}
         <div className="severity-filter-row">
           <div className="severity-pills">
             {['critical', 'high', 'medium', 'low'].map((sev) =>
@@ -227,10 +227,55 @@ function ScanResults() {
             )}
           </div>
 
-          <button className="filter-toggle-btn" onClick={() => setFilterOpen((o) => !o)}>
-            <span>// FILTER BY SOURCE{platformFilter.length > 0 ? ` (${platformFilter.length})` : ''}</span>
-            <span className={`filter-chevron ${filterOpen ? 'open' : ''}`}>▾</span>
-          </button>
+          <div className="platform-filter-inline">
+            {filterOpen && ALL_PLATFORMS.map((platform) => {
+              const hasInfo = platformsWithInfo.has(platform)
+              const isActive = platformFilter.includes(platform)
+              return (
+                <div key={platform} className="platform-icon-wrap">
+                  <button
+                    type="button"
+                    className={`platform-icon-btn ${isActive ? 'active' : ''} ${!hasInfo ? 'disabled' : ''}`}
+                    onClick={() => hasInfo && togglePlatformFilter(platform)}
+                  >
+                    <PlatformIcon platform={platform} size={20} />
+                  </button>
+                  <span className="platform-icon-tooltip">
+                    {hasInfo ? getPlatformLabel(platform) : `${getPlatformLabel(platform)} — no info`}
+                  </span>
+                  {isActive && (
+                    <button
+                      type="button"
+                      className="platform-icon-remove"
+                      onClick={(e) => { e.stopPropagation(); togglePlatformFilter(platform) }}
+                      title="Remove filter"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+
+            <button
+              className={`filter-cluster-btn ${filterOpen ? 'is-open' : ''}`}
+              onClick={() => setFilterOpen((o) => !o)}
+              title={filterOpen ? 'Collapse filters' : 'Filter by source'}
+            >
+              {filterOpen ? (
+                <span className="cluster-close">×</span>
+              ) : (
+                <span className="cluster-icon">
+                  <span className="cluster-dot cluster-dot-1" />
+                  <span className="cluster-dot cluster-dot-2" />
+                  <span className="cluster-dot cluster-dot-3" />
+                </span>
+              )}
+              {!filterOpen && platformFilter.length > 0 && (
+                <span className="filter-count-badge">{platformFilter.length}</span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Collapsible platform filter panel */}
