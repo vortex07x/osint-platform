@@ -472,3 +472,17 @@ def scan_email_async(scan_id: str, email: str, background_tasks: BackgroundTasks
         "message": "Breach check queued for background processing",
         "scan_id": scan_id
     }
+
+@router.delete("/{scan_id}")
+def delete_scan(scan_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    scan = db.query(Scan).filter(Scan.id == scan_id, Scan.user_id == current_user.id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    db.query(Exposure).filter(Exposure.scan_id == scan_id).delete(synchronize_session=False)
+    db.query(Entity).filter(Entity.scan_id == scan_id).delete(synchronize_session=False)
+    db.query(Source).filter(Source.scan_id == scan_id).delete(synchronize_session=False)
+    db.delete(scan)
+    db.commit()
+
+    return {"message": "Scan deleted", "scan_id": scan_id}

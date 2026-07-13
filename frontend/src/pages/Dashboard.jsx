@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import NeonGridCursor from '../components/NeonGridCursor'
+import ConfirmModal from '../components/ConfirmModal'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -13,6 +14,7 @@ function Dashboard() {
   const [deletingId, setDeletingId] = useState(null)
   const navigate = useNavigate()
   const [selectedFile, setSelectedFile] = useState(null)
+  const [scanToDelete, setScanToDelete] = useState(null)
 
   const fetchScans = async () => {
     try {
@@ -85,10 +87,14 @@ function Dashboard() {
     }
   }
 
-  const handleDeleteScan = async (e, scanId) => {
+  const confirmDeleteScan = (e, scan) => {
     e.stopPropagation()
-    if (!window.confirm('Delete this scan and all its data? This cannot be undone.')) return
+    setScanToDelete(scan)
+  }
 
+  const handleDeleteScan = async () => {
+    if (!scanToDelete) return
+    const scanId = scanToDelete.id
     setDeletingId(scanId)
     try {
       await axios.delete(`${API_URL}/scans/${scanId}`)
@@ -97,6 +103,7 @@ function Dashboard() {
       console.error('Error deleting scan:', error)
     } finally {
       setDeletingId(null)
+      setScanToDelete(null)
     }
   }
 
@@ -183,7 +190,7 @@ function Dashboard() {
                   </span>
                   <button
                     className="scan-delete-btn"
-                    onClick={(e) => handleDeleteScan(e, scan.id)}
+                    onClick={(e) => confirmDeleteScan(e, scan.id)}
                     disabled={deletingId === scan.id}
                     title="Delete scan"
                   >
@@ -203,6 +210,16 @@ function Dashboard() {
               </div>
             ))}
           </div>
+        )}
+        {scanToDelete && (
+          <ConfirmModal
+            title="Delete Scan?"
+            message={`This will permanently delete "${scanToDelete.target_identifier}" and all associated exposures, entities, and sources. This cannot be undone.`}
+            confirmLabel="DELETE"
+            danger
+            onConfirm={handleDeleteScan}
+            onCancel={() => setScanToDelete(null)}
+          />
         )}
       </div>
     </div>
