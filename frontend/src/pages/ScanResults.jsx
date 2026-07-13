@@ -1,16 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import ExposureGraph from '../components/ExposureGraph'
 import LocationMap from '../components/LocationMap'
 import ExpandablePanel from '../components/ExpandablePanel'
-import { useRef } from 'react'
 import { PlatformIcon, getPlatformLabel } from '../utils/platformIcons'
 import { getPlatformSettingsUrl } from '../utils/platformSettings'
 import ExposureModal from '../components/ExposureModal'
 import NeonGridCursor from '../components/NeonGridCursor'
 
 const API_URL = import.meta.env.VITE_API_URL
+
+const ALL_PLATFORMS = [
+  'github', 'gitlab', 'instagram', 'twitter', 'tiktok',
+  'reddit', 'pinterest', 'twitch', 'spotify', 'deviantart', 'medium'
+]
 
 function ScanResults() {
   const { scanId } = useParams()
@@ -21,6 +25,16 @@ function ScanResults() {
   const [error, setError] = useState(null)
   const [toggling, setToggling] = useState(false)
   const [selectedExposure, setSelectedExposure] = useState(null)
+
+  // Platform filter state
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [platformFilter, setPlatformFilter] = useState([])
+
+  // Resizable panels state
+  const [leftWidth, setLeftWidth] = useState(56) // percent, left panel share
+  const [isDragging, setIsDragging] = useState(false)
+  const containerRef = useRef(null)
+  const draggingRef = useRef(false)
 
   const fetchReport = async () => {
     try {
@@ -60,6 +74,37 @@ function ScanResults() {
     return () => clearInterval(interval)
   }, [scanId])
 
+  // Resizer drag handling
+  const handleResizeStart = () => {
+    draggingRef.current = true
+    setIsDragging(true)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!draggingRef.current || !containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      let pct = ((e.clientX - rect.left) / rect.width) * 100
+      pct = Math.min(78, Math.max(22, pct))
+      setLeftWidth(pct)
+    }
+    const handleMouseUp = () => {
+      if (!draggingRef.current) return
+      draggingRef.current = false
+      setIsDragging(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
   const severityColor = (severity) => {
     switch (severity) {
       case 'critical': return '#EF4444'
@@ -84,17 +129,32 @@ function ScanResults() {
   }, {})
 
   const getPlatformsForExposure = (exposure) => {
-  const entityIds = new Set(exposure.affected_entities)
-  const sourceIds = new Set(
-    report.entities
-      .filter((e) => entityIds.has(e.id) && e.source_id)
-      .map((e) => e.source_id)
-  )
-  const platforms = new Set(
-    report.sources.filter((s) => sourceIds.has(s.id)).map((s) => s.platform)
-  )
-  return [...platforms]
-}
+    const entityIds = new Set(exposure.affected_entities)
+    const sourceIds = new Set(
+      report.entities
+        .filter((e) => entityIds.has(e.id) && e.source_id)
+        .map((e) => e.source_id)
+    )
+    const platforms = new Set(
+      report.sources.filter((s) => sourceIds.has(s.id)).map((s) => s.platform)
+    )
+    return [...platforms]
+  }
+
+  const platformsWithInfo = new Set(report.sources.map((s) => s.platform))
+
+  const togglePlatformFilter = (platform) => {
+    setPlatformFilter((prev) =>
+      prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
+    )
+  }
+
+  const filteredExposures = platformFilter.length === 0
+    ? report.exposures
+    : report.exposures.filter((exp) => {
+        const platforms = getPlatformsForExposure(exp)
+        return platforms.some((p) => platformFilter.includes(p))
+      })
 
   return (
     <div className="page">
@@ -155,24 +215,76 @@ function ScanResults() {
           </div>
         </div>
 
-        <div className="severity-pills">
-          {['critical', 'high', 'medium', 'low'].map((sev) =>
-            severityCounts[sev] ? (
-              <span key={sev} className="pill" style={{ borderColor: severityColor(sev), color: severityColor(sev) }}>
-                {sev.toUpperCase()}: {severityCounts[sev]}
-              </span>
-            ) : null
+        {/* Severity pills + filter toggle */}
+        <div className="severity-filter-row">
+          <div className="severity-pills">
+            {['critical', 'high', 'medium', 'low'].map((sev) =>
+              severityCounts[sev] ? (
+                <span key={sev} className="pill" style={{ borderColor: severityColor(sev), color: severityColor(sev) }}>
+                  {sev.toUpperCase()}: {severityCounts[sev]}
+                </span>
+              ) : null
+            )}
+          </div>
+
+          <button className="filter-toggle-btn" onClick={() => setFilterOpen((o) => !o)}>
+            <span>// FILTER BY SOURCE{platformFilter.length > 0 ? ` (${platformFilter.length})` : ''}</span>
+            <span className={`filter-chevron ${filterOpen ? 'open' : ''}`}>▾</span>
+          </button>
+        </div>
+
+        {/* Collapsible platform filter panel */}
+        <div className={`platform-filter-panel ${filterOpen ? 'open' : ''}`}>
+          <div className="platform-filter-icons">
+            {ALL_PLATFORMS.map((platform) => {
+              const hasInfo = platformsWithInfo.has(platform)
+              const isActive = platformFilter.includes(platform)
+              return (
+                <button
+                  key={platform}
+                  type="button"
+                  className={`platform-filter-icon ${isActive ? 'active' : ''} ${!hasInfo ? 'disabled' : ''}`}
+                  onClick={() => hasInfo && togglePlatformFilter(platform)}
+                  title={hasInfo ? `Filter: ${getPlatformLabel(platform)}` : `${getPlatformLabel(platform)} — no information available`}
+                >
+                  <PlatformIcon platform={platform} size={16} />
+                  <span className="platform-filter-icon-label">{getPlatformLabel(platform)}</span>
+                  {isActive && (
+                    <span
+                      className="platform-filter-icon-x"
+                      onClick={(e) => { e.stopPropagation(); togglePlatformFilter(platform) }}
+                    >
+                      ×
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          {platformFilter.length > 0 && (
+            <button className="platform-filter-clear" onClick={() => setPlatformFilter([])}>
+              CLEAR ALL FILTERS ×
+            </button>
           )}
         </div>
 
-        <div className="results-grid">
+        {/* Resizable Exposures / Entities grid */}
+        <div
+          className="results-grid"
+          ref={containerRef}
+          style={{ gridTemplateColumns: `${leftWidth}fr 24px ${100 - leftWidth}fr` }}
+        >
           {/* Exposures */}
           <div className="panel">
-            <h2 className="section-label">// EXPOSURES</h2>
+            <h2 className="section-label">
+              // EXPOSURES{platformFilter.length > 0 ? ` (${filteredExposures.length} OF ${report.exposures.length})` : ''}
+            </h2>
             {report.exposures.length === 0 ? (
               <p className="empty-state-small">No exposures found yet.</p>
+            ) : filteredExposures.length === 0 ? (
+              <p className="empty-state-small">No exposures match the selected filters.</p>
             ) : (
-              [...report.exposures]
+              [...filteredExposures]
                 .sort((a, b) => b.risk_score - a.risk_score)
                 .map((exp, i) => {
                   const platforms = getPlatformsForExposure(exp)
@@ -222,6 +334,14 @@ function ScanResults() {
                 })
             )}
           </div>
+
+          {/* Resizer handle */}
+          <div
+            className={`results-resizer ${isDragging ? 'dragging' : ''}`}
+            onMouseDown={handleResizeStart}
+            onDoubleClick={() => setLeftWidth(56)}
+            title="Drag to resize · double-click to reset"
+          />
 
           {/* Entities */}
           <div className="panel">
