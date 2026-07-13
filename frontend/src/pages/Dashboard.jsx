@@ -190,7 +190,7 @@ function Dashboard() {
                   </span>
                   <button
                     className="scan-delete-btn"
-                    onClick={(e) => confirmDeleteScan(e, scan.id)}
+                    onClick={(e) => confirmDeleteScan(e, scan)}
                     disabled={deletingId === scan.id}
                     title="Delete scan"
                   >
