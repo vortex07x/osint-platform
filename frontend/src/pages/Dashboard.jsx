@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import NeonGridCursor from '../components/NeonGridCursor'
@@ -8,6 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL
 
 function Dashboard() {
   const [scans, setScans] = useState([])
+  const scansRef = useRef([])
   const [targetIdentifier, setTargetIdentifier] = useState('')
   const [scanType, setScanType] = useState('username')
   const [loading, setLoading] = useState(false)
@@ -23,6 +24,7 @@ function Dashboard() {
         (a, b) => new Date(b.created_at) - new Date(a.created_at)
       )
       setScans(sorted)
+      scansRef.current = sorted
     } catch (error) {
       console.error('Error fetching scans:', error)
     }
@@ -30,6 +32,15 @@ function Dashboard() {
 
   useEffect(() => {
     fetchScans()
+    const interval = setInterval(() => {
+      const hasActiveScan = scansRef.current.some(
+        (s) => s.status === 'pending' || s.status === 'queued' || s.status === 'running'
+      )
+      if (hasActiveScan) {
+        fetchScans()
+      }
+    }, 4000)
+    return () => clearInterval(interval)
   }, [])
 
   const handleCreateScan = async (e) => {
@@ -76,8 +87,8 @@ function Dashboard() {
         await axios.post(`${API_URL}/scans/${res.data.id}/scan-username-full-async/${targetIdentifier}`)
       } else if (scanType === 'email') {
         await axios.post(`${API_URL}/scans/${res.data.id}/scan-email-async/${encodeURIComponent(targetIdentifier)}`)
-      }else if (scanType === 'domain') {
-         await axios.post(`${API_URL}/scans/${res.data.id}/scan-domain-async/${encodeURIComponent(targetIdentifier)}`)
+      } else if (scanType === 'domain') {
+        await axios.post(`${API_URL}/scans/${res.data.id}/scan-domain-async/${encodeURIComponent(targetIdentifier)}`)
       }
 
       setTargetIdentifier('')
