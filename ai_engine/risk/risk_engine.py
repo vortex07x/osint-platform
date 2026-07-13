@@ -110,6 +110,41 @@ ENTITY_RISK_PROFILES = {
         "title": "Multiple additional data breaches found",
         "recommendation": "Review your full breach history and change reused passwords across all affected accounts."
     },
+    "domain_registrar": {
+        "category": "infrastructure",
+        "severity": "low",
+        "base_score": 10,
+        "title": "Domain registrar publicly identifiable",
+        "recommendation": "Generally low risk on its own, but combined with other WHOIS data it can aid targeted social engineering."
+    },
+    "domain_creation_date": {
+        "category": "infrastructure",
+        "severity": "low",
+        "base_score": 8,
+        "title": "Domain registration date exposed",
+        "recommendation": "Recently registered domains are more likely to be flagged by security tools; ensure this is expected for your use case."
+    },
+    "email_provider": {
+        "category": "infrastructure",
+        "severity": "low",
+        "base_score": 15,
+        "title": "Email hosting provider identifiable via MX records",
+        "recommendation": "Reveals which platform handles this domain's email, which can be used to craft more convincing phishing attempts."
+    },
+    "ip_address": {
+        "category": "infrastructure",
+        "severity": "medium",
+        "base_score": 35,
+        "title": "Public IP address exposed via DNS",
+        "recommendation": "Ensure the underlying server is patched and not directly exposing sensitive services to the internet."
+    },
+    "spf_status": {
+        "category": "infrastructure",
+        "severity": "high",
+        "base_score": 55,
+        "title": "No SPF record configured for domain",
+        "recommendation": "Add an SPF DNS record to reduce the risk of attackers spoofing emails from this domain."
+    },
 }
 
 DEFAULT_RISK_PROFILE = {
@@ -135,6 +170,9 @@ def analyze_entities(entities: list) -> list:
 
     for entity in entities:
         profile = ENTITY_RISK_PROFILES.get(entity["entity_type"], DEFAULT_RISK_PROFILE)
+
+        if entity["entity_type"] == "spf_status" and entity["value"] == "SPF configured":
+            continue
 
         risk_score = profile["base_score"]
 

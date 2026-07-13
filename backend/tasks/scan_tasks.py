@@ -10,6 +10,7 @@ from ai_engine.risk.risk_engine import analyze_entities
 from datetime import datetime, timedelta, timezone
 from db.graph_sync import sync_scan_to_graph
 from ai_engine.breach.breach_checker import check_email_breaches, extract_entities_from_breach_result
+from scrapers.domain.domain_checker import check_domain, extract_entities_from_domain_result
 
 
 def _finalize_task(db, scan_id: str):
@@ -369,6 +370,111 @@ def run_breach_check_task(scan_id: str, email: str):
         return {
             "status": "completed",
             "breaches_found": len(breach_result["breaches"]),
+            "entities_found": len(created_entities),
+            "exposures_found": len(created_exposure_objs)
+        }
+
+    except Exception as e:
+        if scan:
+            _finalize_task(db, scan_id)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+def run_domain_scan_task(scan_id: str, domain: str):
+    """
+    WHOIS + DNS scan for a domain. Single-task scan, same shape as
+    run_breach_check_task — no pending_tasks coordination needed.
+    """
+    db = SessionLocal()
+    scan = None
+    try:
+        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        if not scan:
+            return {"error": "Scan not found"}
+
+        if scan.status == "queued":
+            scan.status = "running"
+            db.commit()
+
+        result = asyncio.run(check_domain(domain))
+
+        new_source = Source(
+            scan_id=scan_id,
+            platform="whois_dns",
+            url=f"https://{domain}",
+            data_type="domain_lookup",
+            raw_data_json=result
+        )
+        db.add(new_source)
+        db.commit()
+        db.refresh(new_source)
+
+        extracted = extract_entities_from_domain_result(result)
+        created_entities = []
+
+        for item in extracted:
+            new_entity = Entity(
+                scan_id=scan_id,
+                source_id=new_source.id,
+                entity_type=item["entity_type"],
+                value=item["value"],
+                confidence_score=item["confidence_score"]
+            )
+            db.add(new_entity)
+            created_entities.append(new_entity)
+
+        db.commit()
+        for e in created_entities:
+            db.refresh(e)
+
+        entity_dicts = [
+            {"id": e.id, "entity_type": e.entity_type, "value": e.value}
+            for e in created_entities
+        ]
+        exposure_findings = analyze_entities(entity_dicts)
+
+        created_exposure_objs = []
+        for finding in exposure_findings:
+            new_exposure = Exposure(
+                scan_id=scan_id,
+                category=finding["category"],
+                severity=finding["severity"],
+                title=finding["title"],
+                description=finding["description"],
+                risk_score=finding["risk_score"],
+                affected_entities=finding["affected_entities"],
+                recommendations=finding["recommendations"]
+            )
+            db.add(new_exposure)
+            created_exposure_objs.append(new_exposure)
+
+        db.commit()
+        for ex in created_exposure_objs:
+            db.refresh(ex)
+
+        try:
+            sync_scan_to_graph(
+                scan_id=str(scan.id),
+                target_identifier=scan.target_identifier,
+                sources=[{"id": new_source.id, "platform": new_source.platform, "url": new_source.url}],
+                entities=[
+                    {"id": e.id, "entity_type": e.entity_type, "value": e.value, "source_id": e.source_id}
+                    for e in created_entities
+                ],
+                exposures=[
+                    {"id": ex.id, "title": ex.title, "severity": ex.severity, "risk_score": ex.risk_score, "affected_entities": ex.affected_entities}
+                    for ex in created_exposure_objs
+                ]
+            )
+        except Exception as graph_error:
+            print(f"[GRAPH SYNC WARNING] Failed to sync to Neo4j: {graph_error}")
+
+        _finalize_task(db, scan_id)
+
+        return {
+            "status": "completed",
+            "registrar": result.get("registrar"),
             "entities_found": len(created_entities),
             "exposures_found": len(created_exposure_objs)
         }

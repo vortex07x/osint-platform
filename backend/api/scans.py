@@ -25,6 +25,7 @@ from auth.dependencies import get_current_user
 from models.users import User
 from ai_engine.geo.geocoder import geocode_location
 from tasks.scan_tasks import run_github_scan_task, run_username_check_task, run_breach_check_task, check_monitored_scans
+from tasks.scan_tasks import run_domain_scan_task
 
 router = APIRouter(prefix="/scans", tags=["Scans"])
 
@@ -486,3 +487,19 @@ def delete_scan(scan_id: str, db: Session = Depends(get_db), current_user: User 
     db.commit()
 
     return {"message": "Scan deleted", "scan_id": scan_id}
+
+@router.post("/{scan_id}/scan-domain-async/{domain}")
+def scan_domain_async(scan_id: str, domain: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    scan.status = "queued"
+    db.commit()
+
+    background_tasks.add_task(run_domain_scan_task, scan_id, domain)
+
+    return {
+        "message": "Domain scan queued for background processing",
+        "scan_id": scan_id
+    }
