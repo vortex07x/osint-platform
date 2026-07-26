@@ -13,6 +13,7 @@ from api.entities import router as entities_router
 from api.exposures import router as exposures_router
 from db.neo4j_client import get_neo4j_session
 from api.auth import router as auth_router
+from db.neo4j_client import check_neo4j_health
 import os
 
 app = FastAPI(title="OSINT Platform API")
@@ -54,3 +55,11 @@ def test_neo4j():
         result = session.run("RETURN 'Neo4j connected!' AS message")
         record = result.single()
         return {"neo4j": record["message"]}
+    
+@app.get("/health/neo4j")
+async def neo4j_health():
+    try:
+        await check_neo4j_health()
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "error", "detail": str(e)})

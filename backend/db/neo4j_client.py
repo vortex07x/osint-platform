@@ -17,3 +17,8 @@ def get_neo4j_session():
 
 def close_neo4j_driver():
     driver.close()
+
+async def check_neo4j_health() -> bool:
+    async with driver.session() as session:
+        await session.run("RETURN 1")
+    return True
