@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Trigger monitored scan check
         run: |
-          curl -X POST https://osint-backend-j57f.onrender.com/scans/internal/check-monitored-scans \
+          curl -X POST https://osint-platform-s7tf.onrender.com/scans/internal/check-monitored-scans \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
             --fail \
             --show-error \
