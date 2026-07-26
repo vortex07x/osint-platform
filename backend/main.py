@@ -56,7 +56,7 @@ def test_neo4j():
         record = result.single()
         return {"neo4j": record["message"]}
     
-@app.get("/health/neo4j")
+@app.api_route("/health/neo4j", methods=["GET", "HEAD"])
 async def neo4j_health():
     try:
         await check_neo4j_health()
