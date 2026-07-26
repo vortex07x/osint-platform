@@ -58,9 +58,9 @@ def test_neo4j():
         return {"neo4j": record["message"]}
     
 @app.api_route("/health/neo4j", methods=["GET", "HEAD"])
-async def neo4j_health():
+def neo4j_health():
     try:
-        await check_neo4j_health()
+        check_neo4j_health()
         return {"status": "ok"}
     except Exception as e:
         return JSONResponse(status_code=503, content={"status": "error", "detail": str(e)})
