@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
 import os
+import asyncio
 from sqlalchemy.orm import Session
 from typing import List
 from db.database import get_db
@@ -364,7 +365,8 @@ async def scan_image(scan_id: str, file: UploadFile = File(...), db: Session = D
             db.refresh(exp)
 
         try:
-            sync_scan_to_graph(
+            await asyncio.to_thread(
+                sync_scan_to_graph,
                 scan_id=str(scan.id),
                 target_identifier=scan.target_identifier,
                 sources=[{"id": new_source.id, "platform": new_source.platform, "url": new_source.url}],
