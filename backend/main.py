@@ -14,6 +14,7 @@ from api.exposures import router as exposures_router
 from db.neo4j_client import get_neo4j_session
 from api.auth import router as auth_router
 from db.neo4j_client import check_neo4j_health
+from fastapi.responses import JSONResponse
 import os
 
 app = FastAPI(title="OSINT Platform API")
